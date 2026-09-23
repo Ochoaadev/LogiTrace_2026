@@ -1,0 +1,28 @@
+const express = require('express')
+const router = express.Router()
+
+const authRoutes = require('../modules/auth/auth.routes')
+const usuarioRoutes = require('../modules/usuarios/usuario.routes')
+const pedidoRoutes = require('../modules/pedidos/pedido.routes')
+const despachoRoutes = require('../modules/despachos/despacho.routes')
+const incidenciaRoutes = require('../modules/incidencias/incidencia.routes')
+const devolucionRoutes = require('../modules/devoluciones/devolucion.routes')
+const inventarioRoutes = require('../modules/inventario/inventario.routes')
+const trazabilidadRoutes = require('../modules/trazabilidad/trazabilidad.routes')
+const residuoRoutes = require('../modules/residuos/residuo.routes')
+const reporteRoutes = require('../modules/reportes/reporte.routes')
+const auditoriaRoutes = require('../modules/auditoria/auditoria.routes')
+
+router.use('/auth', authRoutes)
+router.use('/usuarios', usuarioRoutes)
+router.use('/pedidos', pedidoRoutes)
+router.use('/despachos', despachoRoutes)
+router.use('/incidencias', incidenciaRoutes)
+router.use('/devoluciones', devolucionRoutes)
+router.use('/inventario', inventarioRoutes)
+router.use('/trazabilidad', trazabilidadRoutes)
+router.use('/residuos', residuoRoutes)
+router.use('/reportes', reporteRoutes)
+router.use('/auditoria', auditoriaRoutes)
+
+module.exports = router

@@ -1,0 +1,820 @@
+// ============================================================
+// LogiTrace — Modelo de Datos v1.4
+// PostgreSQL + Prisma ORM
+// Caso: SuperTequeños, Valera, Estado Trujillo, Venezuela
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum RolUsuario {
+  ADMINISTRADOR
+  SUPERVISOR
+  OPERADOR
+  REPARTIDOR
+}
+
+enum EstadoPedido {
+  REGISTRADO
+  EN_PREPARACION
+  LISTO_PARA_DESPACHO
+  EN_RUTA
+  ENTREGADO
+  CON_INCIDENCIA
+  DEVUELTO
+  CERRADO
+  CANCELADO
+}
+
+enum PrioridadPedido {
+  BAJA
+  NORMAL
+  ALTA
+  URGENTE
+}
+
+enum MetodoEntrega {
+  DOMICILIO
+  RETIRO_EN_ESTABLECIMIENTO
+}
+
+enum EstadoRepartidor {
+  DISPONIBLE
+  EN_RUTA
+  NO_DISPONIBLE
+  INACTIVO
+}
+
+enum EstadoDespacho {
+  PROGRAMADO
+  PREPARANDO
+  EN_RUTA
+  CON_INCIDENCIA
+  FINALIZADO
+  CANCELADO
+}
+
+enum EstadoDespachoPedido {
+  PENDIENTE
+  EN_RUTA
+  EN_ESPERA
+  ENTREGADO
+  CON_INCIDENCIA
+  DEVUELTO
+  REPROGRAMADO
+}
+
+enum EstadoRuta {
+  PROGRAMADA
+  EN_CURSO
+  FINALIZADA
+  CANCELADA
+}
+
+enum TipoVehiculo {
+  MOTO
+  VEHICULO_LIVIANO
+  FURGON
+  OTRO
+}
+
+enum TipoUbicacionAlmacen {
+  CAVA
+  ALMACEN
+  PREPARACION
+  RECEPCION
+  CUARENTENA
+  DESCARTE
+  OTRA
+}
+
+enum EstadoCalidadLote {
+  DISPONIBLE
+  CUARENTENA
+  NO_APTO
+  VENCIDO
+}
+
+enum TipoMovimientoInventario {
+  ENTRADA
+  SALIDA
+  AJUSTE
+  REINGRESO
+  TRASLADO
+  DESCARTE
+}
+
+enum EstadoIncidencia {
+  ABIERTA
+  EN_GESTION
+  RESUELTA
+  CERRADA
+  CANCELADA
+}
+
+enum EstadoDevolucion {
+  SOLICITADA
+  EN_TRASLADO
+  RECIBIDA
+  EVALUADA
+  CERRADA
+  CANCELADA
+}
+
+enum EstadoProductoRetornado {
+  APTO_PARA_VENTA
+  DETERIORADO
+  NO_APTO_PARA_VENTA
+}
+
+enum DecisionDevolucion {
+  REINGRESO
+  CUARENTENA
+  DESCARTE
+}
+
+enum TipoRegistroTemperatura {
+  CAVA
+  VEHICULO_SALIDA
+  RECEPCION_DEVOLUCION
+  OTRA
+}
+
+enum TipoGestorResiduo {
+  INTERNO
+  EXTERNO
+}
+
+enum EstadoResiduo {
+  REGISTRADO
+  EN_ALMACENAMIENTO
+  RETIRADO
+  DISPOSICION_FINAL
+  ANULADO
+}
+
+enum TipoEventoTrazabilidad {
+  PEDIDO_CREADO
+  PEDIDO_ACTUALIZADO
+  ESTADO_PEDIDO_CAMBIADO
+  PEDIDO_PREPARADO
+  DESPACHO_CREADO
+  DESPACHO_ASIGNADO
+  SALIDA_DESPACHO
+  UBICACION_ACTUALIZADA
+  ENTREGA_REGISTRADA
+  INCIDENCIA_REGISTRADA
+  INCIDENCIA_RESUELTA
+  DEVOLUCION_REGISTRADA
+  DEVOLUCION_RECIBIDA
+  PRODUCTO_EVALUADO
+  INVENTARIO_ACTUALIZADO
+  RESIDUO_REGISTRADO
+  DEVOLUCION_CERRADA
+  TRAZABILIDAD_CERRADA
+}
+
+// ============================================================
+// SEGURIDAD Y USUARIOS
+// ============================================================
+
+model Usuario {
+  id             String    @id @default(uuid()) @db.Uuid
+  codigo         String    @unique @db.VarChar(20)
+  nombre         String    @db.VarChar(120)
+  documento      String?   @unique @db.VarChar(30)
+  email          String    @unique @db.VarChar(120)
+  passwordHash   String    @db.VarChar(255)
+  rol            RolUsuario
+  activo         Boolean   @default(true)
+  ultimoAcceso   DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  repartidor             Repartidor?
+  auditorias             Auditoria[]
+  eventosTrazabilidad     EventoTrazabilidad[]
+  incidenciasReportadas   Incidencia[] @relation("IncidenciaReportadaPor")
+  incidenciasResueltas    Incidencia[] @relation("IncidenciaResueltaPor")
+  devolucionesRecibidas   Devolucion[] @relation("DevolucionRecibidaPor")
+  evaluacionesRealizadas  EvaluacionDevolucion[]
+  movimientosInventario   MovimientoInventario[]
+  registrosTemperatura    RegistroTemperatura[]
+  pedidosCreados          Pedido[] @relation("PedidoCreadoPor")
+
+  @@index([rol])
+  @@index([activo])
+}
+
+model Repartidor {
+  id              String   @id @default(uuid()) @db.Uuid
+  usuarioId       String   @unique @db.Uuid
+  telefono        String?  @db.VarChar(30)
+  numeroLicencia  String?  @db.VarChar(30)
+  estado          EstadoRepartidor @default(DISPONIBLE)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  despachos      Despacho[]
+  ubicacionesGPS UbicacionGPS[]
+
+  @@index([estado])
+}
+
+// ============================================================
+// CLIENTES, ZONAS, RUTAS Y VEHICULOS
+// ============================================================
+
+model Cliente {
+  id               String   @id @default(uuid()) @db.Uuid
+  codigo           String   @unique @db.VarChar(20)
+  razonSocial      String   @db.VarChar(150)
+  nombreContacto   String?  @db.VarChar(120)
+  tipoDocumento    String?  @db.VarChar(20)
+  numeroDocumento  String?  @unique @db.VarChar(30)
+  telefono         String?  @db.VarChar(30)
+  email            String?  @db.VarChar(120)
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  pedidos Pedido[]
+
+  @@index([razonSocial])
+  @@index([activo])
+}
+
+model ZonaDespacho {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique @db.VarChar(20)
+  nombre      String   @db.VarChar(100)
+  municipio   String?  @db.VarChar(100)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  pedidos Pedido[]
+  rutas   Ruta[]
+
+  @@index([activo])
+}
+
+model Ruta {
+  id          String      @id @default(uuid()) @db.Uuid
+  codigo      String      @unique @db.VarChar(20)
+  nombre      String      @db.VarChar(100)
+  zonaId      String?     @db.Uuid
+  fecha       DateTime    @db.Date
+  estado      EstadoRuta  @default(PROGRAMADA)
+  horaInicio  DateTime?   @db.Time(0)
+  horaFin     DateTime?   @db.Time(0)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  zona      ZonaDespacho? @relation(fields: [zonaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  despachos Despacho[]
+
+  @@index([fecha])
+  @@index([estado])
+  @@index([zonaId])
+}
+
+model Vehiculo {
+  id          String      @id @default(uuid()) @db.Uuid
+  codigo      String      @unique @db.VarChar(20)
+  tipo        TipoVehiculo
+  placa       String?     @unique @db.VarChar(20)
+  descripcion      String?
+  capacidadCarga   Decimal?    @db.Decimal(10, 2)
+  unidadCapacidad  String?     @db.VarChar(20)
+  esTermico        Boolean     @default(false)
+  activo           Boolean     @default(true)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  despachos Despacho[]
+
+  @@index([tipo])
+  @@index([activo])
+}
+
+// ============================================================
+// PRODUCTOS, LOTES E INVENTARIO
+// ============================================================
+
+model Producto {
+  id           String   @id @default(uuid()) @db.Uuid
+  codigo       String   @unique @db.VarChar(30)
+  nombre       String   @db.VarChar(120)
+  descripcion  String?
+  unidadBase   String   @db.VarChar(20)
+  esPerecedero Boolean  @default(true)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  detallesPedido  DetallePedido[]
+  lotes           Lote[]
+
+  @@index([nombre])
+  @@index([activo])
+}
+
+model Lote {
+  id               String            @id @default(uuid()) @db.Uuid
+  codigo           String            @db.VarChar(30)
+  productoId       String            @db.Uuid
+  fechaProduccion  DateTime?         @db.Date
+  fechaVencimiento DateTime?         @db.Date
+  estadoCalidad    EstadoCalidadLote @default(DISPONIBLE)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  producto           Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  inventarios        Inventario[]
+  detallesDespacho   DetalleDespacho[]
+  detallesDevolucion DetalleDevolucion[]
+  movimientos        MovimientoInventario[]
+
+  @@unique([productoId, codigo])
+  @@index([fechaVencimiento])
+  @@index([estadoCalidad])
+}
+
+model UbicacionAlmacen {
+  id       String             @id @default(uuid()) @db.Uuid
+  codigo   String             @unique @db.VarChar(20)
+  nombre   String             @db.VarChar(100)
+  tipo     TipoUbicacionAlmacen
+  activo   Boolean            @default(true)
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(3)
+
+  inventarios           Inventario[]
+  movimientosOrigen     MovimientoInventario[] @relation("MovimientoOrigen")
+  movimientosDestino    MovimientoInventario[] @relation("MovimientoDestino")
+  registrosTemperatura  RegistroTemperatura[]
+
+  @@index([tipo])
+  @@index([activo])
+}
+
+model Inventario {
+  id           String   @id @default(uuid()) @db.Uuid
+  loteId       String   @db.Uuid
+  ubicacionId  String   @db.Uuid
+  stockActual  Decimal  @default(0) @db.Decimal(10, 2)
+  stockMinimo  Decimal  @default(0) @db.Decimal(10, 2)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  lote       Lote             @relation(fields: [loteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ubicacion  UbicacionAlmacen @relation(fields: [ubicacionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([loteId, ubicacionId])
+  @@index([ubicacionId])
+  @@index([stockActual])
+}
+
+model MovimientoInventario {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  tipo                 TipoMovimientoInventario
+  loteId               String                 @db.Uuid
+  ubicacionOrigenId    String?                @db.Uuid
+  ubicacionDestinoId   String?                @db.Uuid
+  cantidad             Decimal                @db.Decimal(10, 2)
+  unidad               String                 @db.VarChar(20)
+  fechaHora            DateTime               @default(now()) @db.Timestamptz(3)
+  usuarioId            String                 @db.Uuid
+  referenciaTipo       String?                @db.VarChar(30)
+  referenciaId         String?                @db.Uuid
+  observaciones        String?
+
+  lote            Lote             @relation(fields: [loteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ubicacionOrigen UbicacionAlmacen? @relation("MovimientoOrigen", fields: [ubicacionOrigenId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ubicacionDestino UbicacionAlmacen? @relation("MovimientoDestino", fields: [ubicacionDestinoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  usuario         Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([loteId, fechaHora])
+  @@index([usuarioId, fechaHora])
+  @@index([tipo, fechaHora])
+  @@index([referenciaTipo, referenciaId])
+}
+
+// ============================================================
+// PEDIDOS
+// ============================================================
+
+model Pedido {
+  id               String          @id @default(uuid()) @db.Uuid
+  codigo           String          @unique @db.VarChar(20)
+  clienteId        String          @db.Uuid
+  fechaHora        DateTime        @default(now()) @db.Timestamptz(3)
+  estado           EstadoPedido    @default(REGISTRADO)
+  prioridad        PrioridadPedido @default(NORMAL)
+  metodoEntrega    MetodoEntrega   @default(DOMICILIO)
+  zonaId           String?         @db.Uuid
+  direccionEntrega String          @db.Text
+  referenciaEntrega String?        @db.VarChar(180)
+  latitudEntrega   Decimal?        @db.Decimal(9, 6)
+  longitudEntrega  Decimal?        @db.Decimal(9, 6)
+  telefonoContacto String?         @db.VarChar(30)
+  total            Decimal?        @db.Decimal(10, 2)
+  observaciones    String?
+  creadoPorId      String?         @db.Uuid
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+
+  cliente          Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  zona             ZonaDespacho?     @relation(fields: [zonaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  creadoPor        Usuario?          @relation("PedidoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  detalles         DetallePedido[]
+  despachos        DespachoPedido[]
+  eventos          EventoTrazabilidad[]
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaHora])
+  @@index([zonaId])
+}
+
+model DetallePedido {
+  id             String   @id @default(uuid()) @db.Uuid
+  pedidoId       String   @db.Uuid
+  productoId     String   @db.Uuid
+  cantidad       Decimal  @db.Decimal(10, 2)
+  unidad         String   @db.VarChar(20)
+  precioUnitario Decimal? @db.Decimal(10, 2)
+  subtotal       Decimal? @db.Decimal(10, 2)
+  observaciones  String?
+
+  pedido            Pedido             @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  producto          Producto           @relation(fields: [productoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  detallesDespacho  DetalleDespacho[]
+  detallesDevolucion DetalleDevolucion[]
+
+  @@index([pedidoId])
+  @@index([productoId])
+}
+
+// ============================================================
+// DESPACHOS, ENTREGA Y GPS
+// ============================================================
+
+model Despacho {
+  id                 String         @id @default(uuid()) @db.Uuid
+  codigo             String         @unique @db.VarChar(20)
+  rutaId             String?        @db.Uuid
+  repartidorId       String?        @db.Uuid
+  vehiculoId         String?        @db.Uuid
+  estado             EstadoDespacho @default(PROGRAMADO)
+  fechaHoraSalida    DateTime? @db.Timestamptz(3)
+  fechaHoraCierre    DateTime? @db.Timestamptz(3)
+  medioConservacion  String?        @db.VarChar(80)
+  precintoSeguridad  String?        @db.VarChar(50)
+  observaciones      String?
+
+  ruta            Ruta?          @relation(fields: [rutaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  repartidor      Repartidor?     @relation(fields: [repartidorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vehiculo        Vehiculo?      @relation(fields: [vehiculoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pedidos              DespachoPedido[]
+  ubicacionesGPS       UbicacionGPS[]
+  registrosTemperatura RegistroTemperatura[]
+
+  @@index([estado])
+  @@index([repartidorId])
+  @@index([rutaId])
+  @@index([fechaHoraSalida])
+}
+
+model DespachoPedido {
+  id           String                @id @default(uuid()) @db.Uuid
+  despachoId   String                @db.Uuid
+  pedidoId     String                @db.Uuid
+  ordenParada  Int
+  estado       EstadoDespachoPedido  @default(PENDIENTE)
+  horaLlegada  DateTime? @db.Timestamptz(3)
+  horaEntrega  DateTime? @db.Timestamptz(3)
+  receptor     String?               @db.VarChar(120)
+  observaciones String?
+
+  despacho          Despacho             @relation(fields: [despachoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  pedido            Pedido               @relation(fields: [pedidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  detalles          DetalleDespacho[]
+  incidencias       Incidencia[]
+  devoluciones      Devolucion[]
+
+  @@unique([despachoId, pedidoId])
+  @@unique([despachoId, ordenParada])
+  @@index([pedidoId])
+  @@index([estado])
+  @@index([despachoId, ordenParada])
+}
+
+model DetalleDespacho {
+  id                 String  @id @default(uuid()) @db.Uuid
+  despachoPedidoId   String  @db.Uuid
+  detallePedidoId    String  @db.Uuid
+  loteId             String  @db.Uuid
+  cantidad           Decimal @db.Decimal(10, 2)
+  unidad             String  @db.VarChar(20)
+
+  despachoPedido DespachoPedido @relation(fields: [despachoPedidoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  detallePedido  DetallePedido  @relation(fields: [detallePedidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lote           Lote           @relation(fields: [loteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([despachoPedidoId])
+  @@index([detallePedidoId])
+  @@index([loteId])
+}
+
+model UbicacionGPS {
+  id              String   @id @default(uuid()) @db.Uuid
+  despachoId      String   @db.Uuid
+  repartidorId    String   @db.Uuid
+  latitud         Decimal  @db.Decimal(9, 6)
+  longitud        Decimal  @db.Decimal(9, 6)
+  precisionMetros Decimal? @db.Decimal(8, 2)
+  velocidadKmh    Decimal? @db.Decimal(8, 2)
+  fechaHora       DateTime @default(now()) @db.Timestamptz(3)
+
+  despacho   Despacho   @relation(fields: [despachoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  repartidor Repartidor @relation(fields: [repartidorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  eventos    EventoTrazabilidad[]
+
+  @@index([despachoId, fechaHora])
+  @@index([repartidorId, fechaHora])
+}
+
+// ============================================================
+// INCIDENCIAS
+// ============================================================
+
+model TipoIncidencia {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique @db.VarChar(20)
+  nombre      String   @db.VarChar(100)
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  incidencias Incidencia[]
+
+  @@index([activo])
+}
+
+model Incidencia {
+  id                String           @id @default(uuid()) @db.Uuid
+  codigo            String           @unique @db.VarChar(20)
+  despachoPedidoId  String           @db.Uuid
+  tipoIncidenciaId  String           @db.Uuid
+  reportadoPorId    String           @db.Uuid
+  fechaHora         DateTime         @default(now()) @db.Timestamptz(3)
+  latitud           Decimal?         @db.Decimal(9, 6)
+  longitud          Decimal?         @db.Decimal(9, 6)
+  descripcion       String           @db.Text
+  decisionOperativa String?
+  estado            EstadoIncidencia @default(ABIERTA)
+  resueltaPorId     String?          @db.Uuid
+  fechaResolucion   DateTime? @db.Timestamptz(3)
+
+  despachoPedido DespachoPedido @relation(fields: [despachoPedidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipo           TipoIncidencia @relation(fields: [tipoIncidenciaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reportadoPor   Usuario        @relation("IncidenciaReportadaPor", fields: [reportadoPorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resueltaPor    Usuario?       @relation("IncidenciaResueltaPor", fields: [resueltaPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  devoluciones   Devolucion[]
+
+  @@index([despachoPedidoId])
+  @@index([tipoIncidenciaId])
+  @@index([estado])
+  @@index([fechaHora])
+}
+
+// ============================================================
+// DEVOLUCIONES Y EVALUACION
+// ============================================================
+
+model MotivoDevolucion {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique @db.VarChar(20)
+  nombre      String   @db.VarChar(100)
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  devoluciones Devolucion[]
+
+  @@index([activo])
+}
+
+model Devolucion {
+  id                String           @id @default(uuid()) @db.Uuid
+  codigo            String           @unique @db.VarChar(20)
+  despachoPedidoId  String           @db.Uuid
+  incidenciaId      String?          @db.Uuid
+  motivoId          String           @db.Uuid
+  estado            EstadoDevolucion @default(SOLICITADA)
+  fechaRegistro     DateTime         @default(now()) @db.Timestamptz(3)
+  fechaRecepcion    DateTime? @db.Timestamptz(3)
+  recibidoPorId     String?          @db.Uuid
+  observaciones     String?
+
+  despachoPedido  DespachoPedido         @relation(fields: [despachoPedidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  incidencia      Incidencia?             @relation(fields: [incidenciaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  motivo          MotivoDevolucion        @relation(fields: [motivoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  recibidoPor     Usuario?                @relation("DevolucionRecibidaPor", fields: [recibidoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  detalles        DetalleDevolucion[]
+  evaluacion      EvaluacionDevolucion?
+  registrosTemp   RegistroTemperatura[]
+  residuos        Residuo[]
+
+  @@index([despachoPedidoId])
+  @@index([incidenciaId])
+  @@index([motivoId])
+  @@index([estado])
+  @@index([fechaRegistro])
+}
+
+model DetalleDevolucion {
+  id                String                   @id @default(uuid()) @db.Uuid
+  devolucionId      String                   @db.Uuid
+  detallePedidoId   String                   @db.Uuid
+  loteId            String                   @db.Uuid
+  cantidad          Decimal                  @db.Decimal(10, 2)
+  unidad            String                   @db.VarChar(20)
+  estadoProducto    EstadoProductoRetornado
+  decision          DecisionDevolucion?
+
+  devolucion    Devolucion   @relation(fields: [devolucionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  detallePedido DetallePedido @relation(fields: [detallePedidoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lote         Lote          @relation(fields: [loteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([devolucionId])
+  @@index([detallePedidoId])
+  @@index([loteId])
+  @@index([estadoProducto])
+}
+
+model EvaluacionDevolucion {
+  id                    String    @id @default(uuid()) @db.Uuid
+  devolucionId          String    @unique @db.Uuid
+  registroTemperaturaId String?   @unique @db.Uuid
+  selloIntegro          Boolean?
+  condicionEmpaque      String?
+  observaciones         String?
+  evaluadoPorId         String    @db.Uuid
+  fechaHora             DateTime  @default(now()) @db.Timestamptz(3)
+
+  devolucion          Devolucion          @relation(fields: [devolucionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  registroTemperatura RegistroTemperatura? @relation(fields: [registroTemperaturaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  evaluadoPor         Usuario             @relation(fields: [evaluadoPorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([evaluadoPorId])
+  @@index([registroTemperaturaId])
+  @@index([fechaHora])
+}
+
+// ============================================================
+// CONTROL MANUAL DE TEMPERATURA
+// ============================================================
+
+model RegistroTemperatura {
+  id             String                  @id @default(uuid()) @db.Uuid
+  tipoRegistro   TipoRegistroTemperatura
+  ubicacionId    String?                 @db.Uuid
+  despachoId     String?                 @db.Uuid
+  devolucionId   String?                 @db.Uuid
+  temperaturaC   Decimal                 @db.Decimal(5, 2)
+  metodo         String                  @default("MANUAL") @db.VarChar(20)
+  fechaHora      DateTime                @default(now()) @db.Timestamptz(3)
+  usuarioId      String                  @db.Uuid
+  observaciones  String?
+
+  ubicacion     UbicacionAlmacen? @relation(fields: [ubicacionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  despacho      Despacho?         @relation(fields: [despachoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  devolucion    Devolucion?       @relation(fields: [devolucionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  usuario       Usuario           @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  evaluacion    EvaluacionDevolucion?
+
+  @@index([ubicacionId, fechaHora])
+  @@index([despachoId, fechaHora])
+  @@index([devolucionId, fechaHora])
+  @@index([usuarioId, fechaHora])
+}
+
+// ============================================================
+// GESTION DE RESIDUOS
+// ============================================================
+
+model TipoResiduo {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique @db.VarChar(20)
+  nombre      String   @db.VarChar(100)
+  unidadBase  String   @db.VarChar(20)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  residuos Residuo[]
+
+  @@index([activo])
+}
+
+model GestorResiduo {
+  id         String           @id @default(uuid()) @db.Uuid
+  codigo     String           @unique @db.VarChar(20)
+  nombre     String           @db.VarChar(120)
+  tipo       TipoGestorResiduo
+  contacto   String?
+  ubicacion  String?
+  activo     Boolean          @default(true)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime         @updatedAt @db.Timestamptz(3)
+
+  residuos Residuo[]
+
+  @@index([tipo])
+  @@index([activo])
+}
+
+model Residuo {
+  id              String        @id @default(uuid()) @db.Uuid
+  codigo          String        @unique @db.VarChar(20)
+  tipoResiduoId   String        @db.Uuid
+  devolucionId    String?       @db.Uuid
+  gestorId        String?       @db.Uuid
+  cantidad        Decimal       @db.Decimal(10, 2)
+  unidad          String        @db.VarChar(20)
+  origen          String?       @db.VarChar(100)
+  estado          EstadoResiduo @default(REGISTRADO)
+  fechaGeneracion DateTime      @default(now()) @db.Timestamptz(3)
+  fechaRetiro     DateTime? @db.Timestamptz(3)
+  observaciones   String?
+
+  tipoResiduo TipoResiduo   @relation(fields: [tipoResiduoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  devolucion  Devolucion?   @relation(fields: [devolucionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  gestor      GestorResiduo? @relation(fields: [gestorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([tipoResiduoId])
+  @@index([devolucionId])
+  @@index([gestorId])
+  @@index([estado])
+  @@index([fechaGeneracion])
+}
+
+// ============================================================
+// TRAZABILIDAD Y AUDITORIA
+// ============================================================
+
+model EventoTrazabilidad {
+  id               String                @id @default(uuid()) @db.Uuid
+  pedidoId         String?               @db.Uuid
+  usuarioId        String                @db.Uuid
+  tipoEvento       TipoEventoTrazabilidad
+  entidadTipo      String                @db.VarChar(40)
+  entidadId        String                @db.Uuid
+  fechaHora        DateTime              @default(now()) @db.Timestamptz(3)
+  estadoAnterior   String?               @db.VarChar(40)
+  estadoNuevo      String?               @db.VarChar(40)
+  descripcion      String?
+  ubicacionGPSId   String?               @db.Uuid
+
+  pedido        Pedido?       @relation(fields: [pedidoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  usuario       Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  ubicacionGPS  UbicacionGPS? @relation(fields: [ubicacionGPSId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([pedidoId, fechaHora])
+  @@index([usuarioId, fechaHora])
+  @@index([entidadTipo, entidadId, fechaHora])
+  @@index([tipoEvento, fechaHora])
+}
+
+model Auditoria {
+  id         String   @id @default(uuid()) @db.Uuid
+  usuarioId  String   @db.Uuid
+  accion     String   @db.VarChar(80)
+  modulo     String   @db.VarChar(50)
+  entidad    String   @db.VarChar(50)
+  entidadId  String?  @db.Uuid
+  fechaHora  DateTime @default(now()) @db.Timestamptz(3)
+  ip         String?  @db.VarChar(45)
+  detalle    String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([usuarioId, fechaHora])
+  @@index([modulo, fechaHora])
+  @@index([entidad, entidadId])
+}
