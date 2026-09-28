@@ -1,16 +1,58 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar trazabilidad - por implementar' })
-})
+const {
+  listTrazabilidadValidation,
+  getTrazabilidadByPedidoValidation,
+  getTrazabilidadByDespachoValidation,
+} = require('./trazabilidad.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const trazabilidadController = require('./trazabilidad.controller')
 
-router.get('/pedido/:pedidoId', (req, res) => {
-  res.json({ message: 'Trazabilidad de un pedido - por implementar' })
-})
+router.use(authMiddleware)
 
-router.get('/despacho/:despachoId', (req, res) => {
-  res.json({ message: 'Trazabilidad de un despacho - por implementar' })
-})
+router.get(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  listTrazabilidadValidation,
+  validationMiddleware,
+  trazabilidadController.listTrazabilidad
+)
+
+router.get(
+  '/estadisticas',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  trazabilidadController.getEstadisticas
+)
+
+router.get(
+  '/pedido/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  getTrazabilidadByPedidoValidation,
+  validationMiddleware,
+  trazabilidadController.getTrazabilidadByPedido
+)
+
+router.get(
+  '/pedido/:id/completa',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  trazabilidadController.getTrazabilidadCompleta
+)
+
+router.get(
+  '/pedido/:id/timeline',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  trazabilidadController.getTimeline
+)
+
+router.get(
+  '/despacho/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  getTrazabilidadByDespachoValidation,
+  validationMiddleware,
+  trazabilidadController.getTrazabilidadByDespacho
+)
 
 module.exports = router

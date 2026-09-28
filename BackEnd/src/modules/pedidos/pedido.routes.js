@@ -1,24 +1,73 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar pedidos - por implementar' })
-})
+const {
+  listPedidosValidation,
+  createPedidoValidation,
+  updatePedidoValidation,
+  changeEstadoValidation,
+} = require('./pedido.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const pedidoController = require('./pedido.controller')
 
-router.get('/:id', (req, res) => {
-  res.json({ message: 'Obtener pedido - por implementar' })
-})
+router.use(authMiddleware)
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Crear pedido - por implementar' })
-})
+router.get(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  listPedidosValidation,
+  validationMiddleware,
+  pedidoController.listPedidos
+)
 
-router.put('/:id', (req, res) => {
-  res.json({ message: 'Actualizar pedido - por implementar' })
-})
+router.get(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  pedidoController.getPedidoById
+)
 
-router.patch('/:id/estado', (req, res) => {
-  res.json({ message: 'Cambiar estado del pedido - por implementar' })
-})
+router.post(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  createPedidoValidation,
+  validationMiddleware,
+  pedidoController.createPedido
+)
+
+router.put(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  updatePedidoValidation,
+  validationMiddleware,
+  pedidoController.updatePedido
+)
+
+router.patch(
+  '/:id/estado',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  changeEstadoValidation,
+  validationMiddleware,
+  pedidoController.changeEstado
+)
+
+router.post(
+  '/:id/preparar',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  pedidoController.prepararPedido
+)
+
+router.post(
+  '/:id/listo-despacho',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  pedidoController.listoParaDespacho
+)
+
+router.delete(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR'),
+  pedidoController.deletePedido
+)
 
 module.exports = router

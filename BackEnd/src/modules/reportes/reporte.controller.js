@@ -1,0 +1,75 @@
+const reporteService = require('./reporte.service')
+const { success } = require('../../utils/response')
+
+async function getReportePedidos(req, res, next) {
+  try {
+    const reporte = await reporteService.getReportePedidos(req.query)
+    return success(res, reporte, 'Reporte de pedidos generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getReporteDespachos(req, res, next) {
+  try {
+    const reporte = await reporteService.getReporteDespachos(req.query)
+    return success(res, reporte, 'Reporte de despachos generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getReporteIncidencias(req, res, next) {
+  try {
+    const reporte = await reporteService.getReporteIncidencias(req.query)
+    return success(res, reporte, 'Reporte de incidencias generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getReporteDevoluciones(req, res, next) {
+  try {
+    const reporte = await reporteService.getReporteDevoluciones(req.query)
+    return success(res, reporte, 'Reporte de devoluciones generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getReporteInventario(req, res, next) {
+  try {
+    const reporte = await reporteService.getReporteInventario(req.query)
+    return success(res, reporte, 'Reporte de inventario generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getReporteRendimiento(req, res, next) {
+  try {
+    const reporte = await reporteService.getReporteRendimiento(req.query)
+    return success(res, reporte, 'Reporte de rendimiento generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getDashboardKPIs(req, res, next) {
+  try {
+    const kpis = await reporteService.getDashboardKPIs(req.query)
+    return success(res, kpis, 'KPIs del dashboard obtenidos')
+  } catch (err) {
+    next(err)
+  }
+}
+
+module.exports = {
+  getReportePedidos,
+  getReporteDespachos,
+  getReporteIncidencias,
+  getReporteDevoluciones,
+  getReporteInventario,
+  getReporteRendimiento,
+  getDashboardKPIs,
+}

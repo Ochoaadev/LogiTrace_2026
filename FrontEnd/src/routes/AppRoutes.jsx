@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
 import ProtectedRoute from '../components/layout/ProtectedRoute'
 
+import LoginPage from '../pages/Auth/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import PedidosPage from '../pages/Pedidos/PedidosPage'
 import PedidoDetallePage from '../pages/Pedidos/PedidoDetallePage'
@@ -23,12 +24,21 @@ import UsuariosPage from '../pages/Administracion/UsuariosPage'
 import RolesPage from '../pages/Administracion/RolesPage'
 import CatalogosPage from '../pages/Administracion/CatalogosPage'
 
+import ProductosPage from '../pages/Catalogos/ProductosPage'
+import ClientesPage from '../pages/Catalogos/ClientesPage'
+import ZonasPage from '../pages/Catalogos/ZonasPage'
+import VehiculosPage from '../pages/Catalogos/VehiculosPage'
+import TiposIncidenciaPage from '../pages/Catalogos/TiposIncidenciaPage'
+import MotivosDevolucionPage from '../pages/Catalogos/MotivosDevolucionPage'
+import TiposResiduoPage from '../pages/Catalogos/TiposResiduoPage'
+import GestoresResiduoPage from '../pages/Catalogos/GestoresResiduoPage'
+
 function AppRoutes() {
   const { user } = useAuth()
 
   return (
     <Routes>
-      <Route path="/login" element={<div>Login</div>} />
+      <Route path="/login" element={<LoginPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
@@ -57,6 +67,15 @@ function AppRoutes() {
           <Route path="/residuos" element={<ResiduosPage />} />
 
           <Route path="/reportes" element={<ReportesPage />} />
+
+          <Route path="/catalogos/productos" element={<ProductosPage />} />
+          <Route path="/catalogos/clientes" element={<ClientesPage />} />
+          <Route path="/catalogos/zonas" element={<ZonasPage />} />
+          <Route path="/catalogos/vehiculos" element={<VehiculosPage />} />
+          <Route path="/catalogos/tipos-incidencia" element={<TiposIncidenciaPage />} />
+          <Route path="/catalogos/motivos-devolucion" element={<MotivosDevolucionPage />} />
+          <Route path="/catalogos/tipos-residuo" element={<TiposResiduoPage />} />
+          <Route path="/catalogos/gestores-residuo" element={<GestoresResiduoPage />} />
 
           <Route path="/administracion/usuarios" element={<UsuariosPage />} />
           <Route path="/administracion/roles" element={<RolesPage />} />

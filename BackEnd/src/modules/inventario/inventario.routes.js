@@ -1,24 +1,98 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar inventario - por implementar' })
-})
+const {
+  listInventarioValidation,
+  createInventarioValidation,
+  updateInventarioValidation,
+  movimientoValidation,
+  listInventarioValidation: listInventarioValidationAlias,
+  listMovimientosValidation,
+} = require('./inventario.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const inventarioController = require('./inventario.controller')
 
-router.get('/:id', (req, res) => {
-  res.json({ message: 'Obtener item de inventario - por implementar' })
-})
+router.use(authMiddleware)
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Agregar item al inventario - por implementar' })
-})
+// ============================================================
+// INVENTARIO (Stock por lote/ubicación)
+// ============================================================
+router.get(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listInventarioValidationAlias,
+  validationMiddleware,
+  inventarioController.listInventario
+)
 
-router.put('/:id', (req, res) => {
-  res.json({ message: 'Actualizar item del inventario - por implementar' })
-})
+router.get(
+  '/resumen',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  inventarioController.getResumenInventario
+)
 
-router.post('/movimiento', (req, res) => {
-  res.json({ message: 'Registrar movimiento de inventario - por implementar' })
-})
+router.get(
+  '/stock-bajo',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  inventarioController.getStockBajo
+)
+
+// ============================================================
+// MOVIMIENTOS DE INVENTARIO (antes de /:id para evitar conflicto)
+// ============================================================
+router.get(
+  '/movimientos',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listMovimientosValidation,
+  validationMiddleware,
+  inventarioController.listMovimientos
+)
+
+router.get(
+  '/movimientos/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  inventarioController.getMovimientoById
+)
+
+router.post(
+  '/movimiento',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  movimientoValidation,
+  validationMiddleware,
+  inventarioController.registrarMovimiento
+)
+
+// ============================================================
+// INVENTARIO (Stock por lote/ubicación) - Rutas con parámetros al final
+// ============================================================
+router.get(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  inventarioController.getInventarioById
+)
+
+router.post(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  createInventarioValidation,
+  validationMiddleware,
+  inventarioController.createInventario
+)
+
+router.put(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  updateInventarioValidation,
+  validationMiddleware,
+  inventarioController.updateInventario
+)
+
+router.delete(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR'),
+  inventarioController.deleteInventario
+)
 
 module.exports = router

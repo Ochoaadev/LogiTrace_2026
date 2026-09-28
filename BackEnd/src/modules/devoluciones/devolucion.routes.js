@@ -1,24 +1,88 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar devoluciones - por implementar' })
-})
+const {
+  listDevolucionesValidation,
+  createDevolucionValidation,
+  updateDevolucionValidation,
+  changeEstadoDevolucionValidation,
+  recepcionDevolucionValidation,
+  evaluacionDevolucionValidation,
+  evaluacionDetalleValidation,
+} = require('./devolucion.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const devolucionController = require('./devolucion.controller')
 
-router.get('/:id', (req, res) => {
-  res.json({ message: 'Obtener devolución - por implementar' })
-})
+router.use(authMiddleware)
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Crear devolución - por implementar' })
-})
+router.get(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  listDevolucionesValidation,
+  validationMiddleware,
+  devolucionController.listDevoluciones
+)
 
-router.put('/:id', (req, res) => {
-  res.json({ message: 'Actualizar devolución - por implementar' })
-})
+router.get(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  devolucionController.getDevolucionById
+)
 
-router.post('/:id/evaluacion', (req, res) => {
-  res.json({ message: 'Evaluar devolución - por implementar' })
-})
+router.post(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  createDevolucionValidation,
+  validationMiddleware,
+  devolucionController.createDevolucion
+)
+
+router.put(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  updateDevolucionValidation,
+  validationMiddleware,
+  devolucionController.updateDevolucion
+)
+
+router.patch(
+  '/:id/recepcion',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  recepcionDevolucionValidation,
+  validationMiddleware,
+  devolucionController.recepcionDevolucion
+)
+
+router.post(
+  '/:id/evaluacion',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  evaluacionDevolucionValidation,
+  validationMiddleware,
+  devolucionController.evaluarDevolucion
+)
+
+router.post(
+  '/:id/evaluar-detalle',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  evaluacionDetalleValidation,
+  validationMiddleware,
+  devolucionController.evaluarDetalle
+)
+
+router.patch(
+  '/:id/estado',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  changeEstadoDevolucionValidation,
+  validationMiddleware,
+  devolucionController.changeEstado
+)
+
+router.delete(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR'),
+  devolucionController.deleteDevolucion
+)
 
 module.exports = router

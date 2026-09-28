@@ -1,24 +1,77 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar usuarios - por implementar' })
-})
+const {
+  listUsuariosValidation,
+  createUsuarioValidation,
+  updateUsuarioValidation,
+  changeEstadoValidation,
+  changeRolValidation,
+  changePasswordValidation,
+} = require('./usuario.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const usuarioController = require('./usuario.controller')
 
-router.get('/:id', (req, res) => {
-  res.json({ message: 'Obtener usuario - por implementar' })
-})
+router.get(
+  '/',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  listUsuariosValidation,
+  validationMiddleware,
+  usuarioController.listUsuarios
+)
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Crear usuario - por implementar' })
-})
+router.get(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  usuarioController.getUsuarioById
+)
 
-router.put('/:id', (req, res) => {
-  res.json({ message: 'Actualizar usuario - por implementar' })
-})
+router.post(
+  '/',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR'),
+  createUsuarioValidation,
+  validationMiddleware,
+  usuarioController.createUsuario
+)
 
-router.delete('/:id', (req, res) => {
-  res.json({ message: 'Eliminar usuario - por implementar' })
-})
+router.put(
+  '/:id',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR'),
+  updateUsuarioValidation,
+  validationMiddleware,
+  usuarioController.updateUsuario
+)
+
+router.patch(
+  '/:id/estado',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR'),
+  changeEstadoValidation,
+  validationMiddleware,
+  usuarioController.changeEstado
+)
+
+router.patch(
+  '/:id/rol',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR'),
+  changeRolValidation,
+  validationMiddleware,
+  usuarioController.changeRol
+)
+
+router.patch(
+  '/:id/password',
+  authMiddleware,
+  changePasswordValidation,
+  validationMiddleware,
+  usuarioController.changePassword
+)
 
 module.exports = router

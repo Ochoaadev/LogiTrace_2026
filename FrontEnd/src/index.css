@@ -1,12 +1,113 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  /* Carbon Colors */
+  --color-primary: #0f62fe;
+  --color-primary-hover: #0043ce;
+  --color-primary-light: #e8f0fe;
+  --color-success: #198038;
+  --color-success-light: #d4f6e1;
+  --color-danger: #da1e28;
+  --color-danger-light: #fde8e8;
+  --color-warning: #f1c21b;
+  --color-warning-light: #fff8e1;
+  --color-info: #0f62fe;
+  --color-info-light: #e8f0fe;
+
+  /* Gray Scale Carbon */
+  --color-gray-50: #f4f4f4;
+  --color-gray-100: #e0e0e0;
+  --color-gray-200: #c6c6c6;
+  --color-gray-300: #a8a8a8;
+  --color-gray-400: #8d8d8d;
+  --color-gray-500: #6f6f6f;
+  --color-gray-600: #525252;
+  --color-gray-700: #3d3d3d;
+  --color-gray-800: #262626;
+  --color-gray-900: #161616;
+
+  /* Semantic Colors */
+  --color-background: #ffffff;
+  --color-surface: #f4f4f4;
+  --color-border: #e0e0e0;
+  --color-text-primary: #161616;
+  --color-text-secondary: #525252;
+  --color-text-muted: #8d8d8d;
+
+  /* Font */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* Spacing - 8px grid */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* Border Radius - Carbon: cards 0, inputs/buttons 4px */
+  --radius-none: 0;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows - Carbon minimal */
+  --shadow-level1: 0 2px 6px rgba(0,0,0,0.1);
+  --shadow-level2: 0 4px 12px rgba(0,0,0,0.12);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+}
+
+* {
+  font-family: var(--font-sans);
+}
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Carbon-style scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
 }

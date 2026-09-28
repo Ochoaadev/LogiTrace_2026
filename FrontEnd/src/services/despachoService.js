@@ -5,6 +5,8 @@ export const despachoService = {
   getById: (id) => api.get(`/despachos/${id}`),
   create: (data) => api.post('/despachos', data),
   update: (id, data) => api.put(`/despachos/${id}`, data),
-  updateEstado: (id, estado) => api.patch(`/despachos/${id}/estado`, { estado }),
+  updateEstado: (id, estado, observaciones) => api.patch(`/despachos/${id}/estado`, { estado, observaciones }),
   updateUbicacion: (id, ubicacion) => api.patch(`/despachos/${id}/ubicacion`, ubicacion),
+  getFlujoOperativo: () => api.get('/despachos/flujo-operativo'),
+  asignarRepartidor: (id, repartidorId) => api.patch(`/despachos/${id}/repartidor`, { repartidorId }),
 }

@@ -1,28 +1,72 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/pedidos', (req, res) => {
-  res.json({ message: 'Reporte de pedidos - por implementar' })
-})
+const {
+  listReportesValidation,
+  rendimientoValidation,
+  kpiValidation,
+} = require('./reporte.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const reporteController = require('./reporte.controller')
 
-router.get('/despachos', (req, res) => {
-  res.json({ message: 'Reporte de despachos - por implementar' })
-})
+router.use(authMiddleware)
 
-router.get('/incidencias', (req, res) => {
-  res.json({ message: 'Reporte de incidencias - por implementar' })
-})
+router.get(
+  '/kpis',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  kpiValidation,
+  validationMiddleware,
+  reporteController.getDashboardKPIs
+)
 
-router.get('/devoluciones', (req, res) => {
-  res.json({ message: 'Reporte de devoluciones - por implementar' })
-})
+router.get(
+  '/pedidos',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listReportesValidation,
+  validationMiddleware,
+  reporteController.getReportePedidos
+)
 
-router.get('/inventario', (req, res) => {
-  res.json({ message: 'Reporte de inventario - por implementar' })
-})
+router.get(
+  '/despachos',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listReportesValidation,
+  validationMiddleware,
+  reporteController.getReporteDespachos
+)
 
-router.get('/rendimiento', (req, res) => {
-  res.json({ message: 'Reporte de rendimiento - por implementar' })
-})
+router.get(
+  '/incidencias',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listReportesValidation,
+  validationMiddleware,
+  reporteController.getReporteIncidencias
+)
+
+router.get(
+  '/devoluciones',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listReportesValidation,
+  validationMiddleware,
+  reporteController.getReporteDevoluciones
+)
+
+router.get(
+  '/inventario',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  listReportesValidation,
+  validationMiddleware,
+  reporteController.getReporteInventario
+)
+
+router.get(
+  '/rendimiento',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  rendimientoValidation,
+  validationMiddleware,
+  reporteController.getReporteRendimiento
+)
 
 module.exports = router

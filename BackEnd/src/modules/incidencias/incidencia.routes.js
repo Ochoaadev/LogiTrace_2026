@@ -1,24 +1,61 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar incidencias - por implementar' })
-})
+const {
+  listIncidenciasValidation,
+  createIncidenciaValidation,
+  updateIncidenciaValidation,
+  changeEstadoIncidenciaValidation,
+} = require('./incidencia.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const incidenciaController = require('./incidencia.controller')
 
-router.get('/:id', (req, res) => {
-  res.json({ message: 'Obtener incidencia - por implementar' })
-})
+router.use(authMiddleware)
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Crear incidencia - por implementar' })
-})
+router.get(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  listIncidenciasValidation,
+  validationMiddleware,
+  incidenciaController.listIncidencias
+)
 
-router.put('/:id', (req, res) => {
-  res.json({ message: 'Actualizar incidencia - por implementar' })
-})
+router.get(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  incidenciaController.getIncidenciaById
+)
 
-router.patch('/:id/estado', (req, res) => {
-  res.json({ message: 'Cambiar estado de la incidencia - por implementar' })
-})
+router.post(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  createIncidenciaValidation,
+  validationMiddleware,
+  incidenciaController.createIncidencia
+)
+
+router.put(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  updateIncidenciaValidation,
+  validationMiddleware,
+  incidenciaController.updateIncidencia
+)
+
+router.patch(
+  '/:id/estado',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  changeEstadoIncidenciaValidation,
+  validationMiddleware,
+  incidenciaController.changeEstado
+)
+
+router.delete(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  incidenciaController.deleteIncidencia
+)
 
 module.exports = router

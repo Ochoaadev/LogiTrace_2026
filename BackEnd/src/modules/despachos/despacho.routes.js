@@ -1,28 +1,76 @@
 const express = require('express')
 const router = express.Router()
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Listar despachos - por implementar' })
-})
+const {
+  listDespachosValidation,
+  createDespachoValidation,
+  updateDespachoValidation,
+  changeEstadoDespachoValidation,
+  updateUbicacionValidation,
+} = require('./despacho.validation')
+const { validationMiddleware } = require('../../middlewares/validationMiddleware')
+const { authMiddleware } = require('../../middlewares/authMiddleware')
+const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const despachoController = require('./despacho.controller')
 
-router.get('/:id', (req, res) => {
-  res.json({ message: 'Obtener despacho - por implementar' })
-})
+router.use(authMiddleware)
 
-router.post('/', (req, res) => {
-  res.json({ message: 'Crear despacho - por implementar' })
-})
+router.get(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  listDespachosValidation,
+  validationMiddleware,
+  despachoController.listDespachos
+)
 
-router.put('/:id', (req, res) => {
-  res.json({ message: 'Actualizar despacho - por implementar' })
-})
+router.get(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  despachoController.getDespachoById
+)
 
-router.patch('/:id/estado', (req, res) => {
-  res.json({ message: 'Cambiar estado del despacho - por implementar' })
-})
+router.post(
+  '/',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  createDespachoValidation,
+  validationMiddleware,
+  despachoController.createDespacho
+)
 
-router.patch('/:id/ubicacion', (req, res) => {
-  res.json({ message: 'Actualizar ubicación GPS - por implementar' })
-})
+router.put(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  updateDespachoValidation,
+  validationMiddleware,
+  despachoController.updateDespacho
+)
+
+router.patch(
+  '/:id/estado',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  changeEstadoDespachoValidation,
+  validationMiddleware,
+  despachoController.changeEstado
+)
+
+router.patch(
+  '/:id/ubicacion',
+  roleMiddleware('REPARTIDOR', 'ADMINISTRADOR', 'SUPERVISOR'),
+  updateUbicacionValidation,
+  validationMiddleware,
+  despachoController.updateUbicacion
+)
+
+router.patch(
+  '/:id/orden',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  despachoController.updatePedidosOrden
+)
+
+router.delete(
+  '/:id',
+  roleMiddleware('ADMINISTRADOR'),
+  despachoController.deleteDespacho
+)
 
 module.exports = router
