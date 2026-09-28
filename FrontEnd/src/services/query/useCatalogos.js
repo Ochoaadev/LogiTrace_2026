@@ -72,3 +72,27 @@ export function useGestoresResiduo(filters = {}, pagination = { page: 1, limit: 
     staleTime: 60_000,
   })
 }
+
+export function useRutas(filters = {}, pagination = { page: 1, limit: 10 }) {
+  return useQuery({
+    queryKey: ['catalogos', 'rutas', filters, pagination],
+    queryFn: () => catalogoService.getRutas({ ...filters, ...pagination }),
+    staleTime: 60_000,
+  })
+}
+
+export function useLotes(filters = {}, pagination = { page: 1, limit: 10 }) {
+  return useQuery({
+    queryKey: ['catalogos', 'lotes', filters, pagination],
+    queryFn: () => catalogoService.getLotes({ ...filters, ...pagination }),
+    staleTime: 60_000,
+  })
+}
+
+export function useUbicaciones(filters = {}, pagination = { page: 1, limit: 10 }) {
+  return useQuery({
+    queryKey: ['catalogos', 'ubicaciones', filters, pagination],
+    queryFn: () => catalogoService.getUbicaciones({ ...filters, ...pagination }),
+    staleTime: 60_000,
+  })
+}

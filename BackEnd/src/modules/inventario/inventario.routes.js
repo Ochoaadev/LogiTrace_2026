@@ -68,6 +68,12 @@ router.post(
 // INVENTARIO (Stock por lote/ubicación) - Rutas con parámetros al final
 // ============================================================
 router.get(
+  '/lote/:id',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  inventarioController.getLoteDetalle
+)
+
+router.get(
   '/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   inventarioController.getInventarioById

@@ -24,6 +24,12 @@ router.get(
 )
 
 router.get(
+  '/flujo-operativo',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  despachoController.getFlujoOperativo
+)
+
+router.get(
   '/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
   despachoController.getDespachoById

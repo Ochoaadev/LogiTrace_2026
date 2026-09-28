@@ -99,9 +99,19 @@ async function getResumenInventario(req, res, next) {
   }
 }
 
+async function getLoteDetalle(req, res, next) {
+  try {
+    const inventario = await inventarioService.getInventarioById(req.params.id)
+    return success(res, inventario, 'Detalle de lote obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
   listInventario,
   getInventarioById,
+  getLoteDetalle,
   createInventario,
   updateInventario,
   deleteInventario,

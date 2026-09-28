@@ -80,6 +80,15 @@ async function deleteDespacho(req, res, next) {
   }
 }
 
+async function getFlujoOperativo(req, res, next) {
+  try {
+    const flujo = await despachoService.getFlujoOperativo()
+    return success(res, flujo, 'Flujo operativo obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
   listDespachos,
   getDespachoById,
@@ -89,4 +98,5 @@ module.exports = {
   updateUbicacion,
   updatePedidosOrden,
   deleteDespacho,
+  getFlujoOperativo,
 }

@@ -380,6 +380,56 @@ async function deleteDespacho(id) {
   return true
 }
 
+async function getFlujoOperativo() {
+  const despachos = await prisma.despacho.findMany({
+    where: {
+      estado: { in: ['PREPARANDO', 'EN_RUTA', 'FINALIZADO', 'CANCELADO'] },
+    },
+    include: {
+      ruta: { select: { id: true, codigo: true, nombre: true } },
+      repartidor: { include: { usuario: { select: { id: true, nombre: true, codigo: true } } } },
+      vehiculo: { select: { id: true, codigo: true, placa: true } },
+      pedidos: {
+        include: {
+          pedido: {
+            select: { id: true, codigo: true, cliente: { select: { razonSocial: true } }, direccionEntrega: true },
+          },
+        },
+        orderBy: { ordenParada: 'asc' },
+      },
+    },
+    orderBy: { fechaHoraSalida: 'asc' },
+  })
+
+  const flujo = {
+    PREPARANDO: [],
+    EN_RUTA: [],
+    FINALIZADO: [],
+    CANCELADO: [],
+  }
+
+  for (const d of despachos) {
+    const estado = d.estado
+    if (flujo[estado]) {
+      flujo[estado].push({
+        id: d.id,
+        codigo: d.codigo,
+        repartidor: d.repartidor ? { id: d.repartidor.id, nombre: d.repartidor.usuario?.nombre, codigo: d.repartidor.usuario?.codigo } : null,
+        vehiculo: d.vehiculo ? { id: d.vehiculo.id, codigo: d.vehiculo.codigo, placa: d.vehiculo.placa } : null,
+        ruta: d.ruta ? { id: d.ruta.id, codigo: d.ruta.codigo, nombre: d.ruta.nombre } : null,
+        cliente: d.pedidos?.[0]?.pedido?.cliente?.razonSocial || null,
+        fechaSalida: d.fechaHoraSalida,
+        fechaEntrega: d.fechaHoraCierre,
+        estado: d.estado,
+        prioridad: d.prioridad,
+        _count: { ubicacionesGPS: d._count?.ubicacionesGPS || 0 },
+      })
+    }
+  }
+
+  return flujo
+}
+
 module.exports = {
   listDespachos,
   getDespachoById,
@@ -389,4 +439,5 @@ module.exports = {
   updateUbicacion,
   updatePedidosOrden,
   deleteDespacho,
+  getFlujoOperativo,
 }

@@ -74,12 +74,39 @@ export const repartidorService = {
   delete: (id) => api.delete(`${base}/repartidores/${id}`),
 }
 
+export const rutaService = {
+  getAll: (params) => api.get(`${base}/rutas`, { params }),
+  getById: (id) => api.get(`${base}/rutas/${id}`),
+  create: (data) => api.post(`${base}/rutas`, data),
+  update: (id, data) => api.put(`${base}/rutas/${id}`, data),
+  delete: (id) => api.delete(`${base}/rutas/${id}`),
+}
+
+export const loteService = {
+  getAll: (params) => api.get(`${base}/lotes`, { params }),
+  getById: (id) => api.get(`${base}/lotes/${id}`),
+  create: (data) => api.post(`${base}/lotes`, data),
+  update: (id, data) => api.put(`${base}/lotes/${id}`, data),
+  delete: (id) => api.delete(`${base}/lotes/${id}`),
+}
+
+export const ubicacionService = {
+  getAll: (params) => api.get(`${base}/ubicaciones`, { params }),
+  getById: (id) => api.get(`${base}/ubicaciones/${id}`),
+  create: (data) => api.post(`${base}/ubicaciones`, data),
+  update: (id, data) => api.put(`${base}/ubicaciones/${id}`, data),
+  delete: (id) => api.delete(`${base}/ubicaciones/${id}`),
+}
+
 export const catalogoService = {
   getProductos: (params) => productoService.getAll(params),
   getClientes: (params) => clienteService.getAll(params),
   getZonas: (params) => zonaService.getAll(params),
   getVehiculos: (params) => vehiculoService.getAll(params),
   getRepartidores: (params) => repartidorService.getAll(params),
+  getRutas: (params) => rutaService.getAll(params),
+  getLotes: (params) => loteService.getAll(params),
+  getUbicaciones: (params) => ubicacionService.getAll(params),
   getTiposIncidencia: (params) => tipoIncidenciaService.getAll(params),
   getMotivosDevolucion: (params) => motivoDevolucionService.getAll(params),
   getTiposResiduo: (params) => tipoResiduoService.getAll(params),

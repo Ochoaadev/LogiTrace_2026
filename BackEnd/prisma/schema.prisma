@@ -115,8 +115,9 @@ enum TipoMovimientoInventario {
 }
 
 enum EstadoIncidencia {
-  ABIERTA
-  EN_GESTION
+  REPORTADA
+  EN_REVISION
+  EN_ATENCION
   RESUELTA
   CERRADA
   CANCELADA
@@ -585,7 +586,7 @@ model Incidencia {
   longitud          Decimal?         @db.Decimal(9, 6)
   descripcion       String           @db.Text
   decisionOperativa String?
-  estado            EstadoIncidencia @default(ABIERTA)
+  estado            EstadoIncidencia @default(REPORTADA)
   resueltaPorId     String?          @db.Uuid
   fechaResolucion   DateTime? @db.Timestamptz(3)
 

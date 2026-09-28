@@ -18,6 +18,32 @@ export function useDevolucion(id) {
   })
 }
 
+export function useProcesarDevolucion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, accion, observaciones, detalles }) => {
+      switch (accion) {
+        case 'recibir':
+          return devolucionService.recepcion(id, { observaciones: '' })
+        case 'evaluar':
+          return devolucionService.evaluar(id, { selloIntegro: true, condicionEmpaque: 'OK', observaciones: '', temperatura: 0 })
+        case 'evaluar-detalle':
+          return devolucionService.evaluarDetalle(id, { detalleDevolucionId: '', estadoProducto: '', decision: '', loteId: '', ubicacionId: '' })
+        case 'cancelar':
+          return devolucionService.updateEstado(id, 'CANCELADA', '')
+        case 'cerrar':
+          return devolucionService.updateEstado(id, 'CERRADA', '')
+        default:
+          return devolucionService.updateEstado(id, accion.toUpperCase(), '')
+      }
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['devoluciones'] })
+      queryClient.invalidateQueries({ queryKey: ['devoluciones', id] })
+    },
+  })
+}
+
 export function useCreateDevolucion() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -28,10 +54,43 @@ export function useCreateDevolucion() {
   })
 }
 
-export function useProcesarDevolucion() {
+export function useRecepcionDevolucion() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, accion, observaciones }) => devolucionService.procesar(id, accion, observaciones),
+    mutationFn: ({ id, temperatura, observaciones }) => devolucionService.recepcion(id, { temperatura, observaciones }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['devoluciones'] })
+      queryClient.invalidateQueries({ queryKey: ['devoluciones', id] })
+    },
+  })
+}
+
+export function useEvaluarDevolucion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, selloIntegro, condicionEmpaque, observaciones, temperatura }) => devolucionService.evaluar(id, { selloIntegro, condicionEmpaque, observaciones, temperatura }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['devoluciones'] })
+      queryClient.invalidateQueries({ queryKey: ['devoluciones', id] })
+    },
+  })
+}
+
+export function useEvaluarDetalleDevolucion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, detalleDevolucionId, estadoProducto, decision, loteId, ubicacionId }) => devolucionService.evaluarDetalle(id, { detalleDevolucionId, estadoProducto, decision, loteId, ubicacionId }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['devoluciones'] })
+      queryClient.invalidateQueries({ queryKey: ['devoluciones', id] })
+    },
+  })
+}
+
+export function useUpdateEstadoDevolucion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, estado, observaciones }) => devolucionService.updateEstado(id, estado, observaciones),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['devoluciones'] })
       queryClient.invalidateQueries({ queryKey: ['devoluciones', id] })

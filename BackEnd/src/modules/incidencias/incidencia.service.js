@@ -171,11 +171,12 @@ async function changeEstado(id, nuevoEstado, usuarioId, decisionOperativa, obser
   const estadoActual = incidencia.estado
 
   const transicionesValidas = {
-    ABIERTA: ['EN_GESTION', 'RESUELTA', 'CANCELADA'],
-    EN_GESTION: ['RESUELTA', 'CANCELADA'],
-    RESUELTA: ['CERRADA'],
-    CANCELADA: [],
+    REPORTADA: ['EN_REVISION', 'CANCELADA'],
+    EN_REVISION: ['EN_ATENCION', 'REPORTADA', 'CANCELADA'],
+    EN_ATENCION: ['RESUELTA', 'EN_REVISION'],
+    RESUELTA: ['CERRADA', 'EN_ATENCION'],
     CERRADA: [],
+    CANCELADA: [],
   }
 
   if (!transicionesValidas[estadoActual]?.includes(nuevoEstado)) {

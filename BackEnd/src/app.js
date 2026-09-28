@@ -9,8 +9,13 @@ const { errorMiddleware } = require('./middlewares/errorMiddleware')
 const app = express()
 
 app.use(morgan('dev'))
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://192.168.0.123:5173',
+  'http://192.168.56.1:5173',
+]
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173',
+  origin: process.env.NODE_ENV === 'production' ? '' : allowedOrigins,
   credentials: true,
 }))
 app.use(express.json())
