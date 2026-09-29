@@ -9,7 +9,8 @@ const TabsList = React.forwardRef(
     <TabsPrimitive.List
       ref={ref}
       className={cn(
-        'inline-flex h-12 items-end justify-start border-b border-gray-100 text-gray-600',
+        // En pantallas angostas la barra se desplaza en horizontal en lugar de ensanchar la página
+        'flex max-w-full h-12 items-end justify-start overflow-x-auto overflow-y-hidden border-b border-gray-100 text-gray-600',
         variant === 'boxed' && 'bg-transparent p-0',
         className
       )}

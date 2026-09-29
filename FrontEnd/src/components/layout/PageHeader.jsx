@@ -29,7 +29,12 @@ export function PageHeader({ modulo, seccion, title, description, tags, actions,
           <h1 className="text-[1.75rem] leading-tight font-semibold text-gray-900">{title}</h1>
           {description && <p className="mt-2 text-sm text-gray-600 max-w-3xl">{description}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-3 lg:justify-end">{actions}</div>}
+        {/* En celular las acciones ocupan todo el ancho y su texto puede partirse */}
+        {actions && (
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 lg:justify-end [&>*]:w-full sm:[&>*]:w-auto max-sm:[&_button]:whitespace-normal max-sm:[&_button]:h-auto max-sm:[&_button]:min-h-11 max-sm:[&_button]:py-2">
+            {actions}
+          </div>
+        )}
       </div>
       {children}
     </section>

@@ -259,8 +259,8 @@ export default function DashboardPage() {
                 <h2 className="label-caps text-gray-900">Pedidos y despachos en curso</h2>
                 <p className="text-sm text-gray-600">Monitoreo de entregas activas a clientes mayoristas y comercios</p>
               </div>
-              <div className="flex gap-2">
-                <div className="relative w-64">
+              <div className="flex gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 min-w-0 sm:flex-none sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" aria-hidden="true" />
                   <Input aria-label="Filtrar pedidos" placeholder="Filtrar por código o cliente…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} className="pl-9" />
                 </div>

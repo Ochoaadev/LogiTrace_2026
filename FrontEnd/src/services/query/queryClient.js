@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import { sesion } from '@/lib/sesion'
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,9 +19,7 @@ export const queryClient = new QueryClient({
 
 export async function queryErrorHandler(error) {
   if (error?.response?.status === 401) {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
+    sesion.limpiar()
     window.location.href = '/login'
     return
   }

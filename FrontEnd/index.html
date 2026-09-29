@@ -1,10 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>logitrace</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>LogiTrace · SuperTequeños C.A.</title>
+    <!-- Aplica el tema guardado (o el del sistema) antes de pintar, para evitar el destello claro -->
+    <script>
+      try {
+        var t = localStorage.getItem('logitrace-tema')
+        var oscuro = t ? t === 'oscuro' : window.matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme = oscuro ? 'dark' : 'light'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light'
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -10,7 +10,7 @@ export function Pestana({ activa, onClick, icon: Icon, contador, children }) {
       onClick={onClick}
       aria-pressed={activa}
       className={cn(
-        'inline-flex items-center gap-2 h-12 px-4 text-sm border-b-2 -mb-px transition-colors',
+        'inline-flex flex-shrink-0 items-center gap-2 h-12 px-4 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors',
         activa ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-700 hover:text-gray-900'
       )}
     >
@@ -26,7 +26,8 @@ export function Pestana({ activa, onClick, icon: Icon, contador, children }) {
 /** Fila de pestañas pegada al borde inferior de la cabecera de módulo. */
 export function Pestanas({ children, etiqueta }) {
   return (
-    <div className="mt-6 -mb-6 flex flex-wrap border-b border-gray-100" role="group" aria-label={etiqueta}>
+    // Una sola fila: en pantallas angostas se desplaza en horizontal (antes cada pestaña ocupaba una fila)
+    <div className="mt-6 -mb-6 flex overflow-x-auto overflow-y-hidden border-b border-gray-100" role="group" aria-label={etiqueta}>
       {children}
     </div>
   )

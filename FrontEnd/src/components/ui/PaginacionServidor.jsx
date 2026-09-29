@@ -24,13 +24,15 @@ export function PaginacionServidor({ pagination, onPageChange, etiqueta = 'regis
       {totalPages > 1 && (
         <div className="flex items-center gap-1">
           <button type="button" className={boton} onClick={() => onPageChange(page - 1)} disabled={page <= 1}>Anterior</button>
+          {/* En celular no caben los números: se muestra la página actual */}
+          <span className="sm:hidden px-2 font-mono text-sm text-gray-700" aria-live="polite">{page} / {totalPages}</span>
           {paginas.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => onPageChange(p)}
               aria-current={p === page ? 'page' : undefined}
-              className={cn(boton, 'font-mono', p === page && 'bg-primary text-white hover:bg-primary')}
+              className={cn(boton, 'hidden sm:inline-block font-mono', p === page && 'bg-primary text-white hover:bg-primary')}
             >
               {p}
             </button>

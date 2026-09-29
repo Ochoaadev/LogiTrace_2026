@@ -232,7 +232,7 @@ export default function ResiduosPage() {
         />
       </div>
 
-      <div className="bg-white mb-6 flex flex-wrap border-b border-gray-100" role="group" aria-label="Vistas del módulo">
+      <div className="bg-white mb-6 flex overflow-x-auto overflow-y-hidden border-b border-gray-100" role="group" aria-label="Vistas del módulo">
         <Pestana activa={vista === 'bitacora'} onClick={() => setVista('bitacora')} icon={ClipboardList} contador={data?.pagination?.total}>Bitácora de residuos generados</Pestana>
         <Pestana activa={vista === 'gestores'} onClick={() => setVista('gestores')} icon={Building2}>Gestores y destinos finales</Pestana>
         <Pestana activa={vista === 'retiros'} onClick={() => setVista('retiros')} icon={Truck} contador={resumen?.pendientesRetiro}>Manifiestos y retiros</Pestana>

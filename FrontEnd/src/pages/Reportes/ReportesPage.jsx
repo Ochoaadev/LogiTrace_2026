@@ -256,7 +256,7 @@ export default function ReportesPage() {
         />
       </div>
 
-      <div className="bg-white mb-6 flex flex-wrap border-b border-gray-100" role="group" aria-label="Secciones del reporte">
+      <div className="bg-white mb-6 flex overflow-x-auto overflow-y-hidden border-b border-gray-100" role="group" aria-label="Secciones del reporte">
         {PESTANAS.map((p) => (
           <Pestana key={p.value} activa={vista === p.value} onClick={() => setVista(p.value)} icon={p.icon}>{p.label}</Pestana>
         ))}

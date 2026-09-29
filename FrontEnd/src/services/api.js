@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { sesion } from '@/lib/sesion'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -11,8 +12,8 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
-  if (token && token !== 'undefined') {
+  const token = sesion.get('accessToken')
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   // Los filtros sin valor ("", null, undefined) no se envían: el backend valida con
@@ -32,9 +33,7 @@ api.interceptors.response.use(
     // el mensaje en lugar de recargar /login y perderlo.
     const isLoginRequest = error.config?.url?.includes('/auth/login')
     if (error.response?.status === 401 && !isLoginRequest) {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('user')
+      sesion.limpiar()
       window.location.href = '/login'
     }
     return Promise.reject(error.response?.data || error)

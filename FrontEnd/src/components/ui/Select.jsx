@@ -17,7 +17,8 @@ const SelectTrigger = React.forwardRef(
         'focus:outline-2 focus:outline-offset-[-2px] focus:outline-primary',
         'disabled:cursor-not-allowed disabled:opacity-50',
         error && 'border-danger outline-2 outline-offset-[-2px] outline-danger',
-        '[&>span]:line-clamp-1',
+        // min-w-0 + truncate: un texto largo se recorta con "…" en lugar de ensanchar el formulario
+        'min-w-0 [&>span]:min-w-0 [&>span]:truncate [&>span]:text-left',
         className
       )}
       disabled={disabled}

@@ -142,7 +142,7 @@ export function RegistroResiduo({ tipos, gestores }) {
         </div>
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
         {ok && <p role="status" className="text-sm bg-success-light text-[#044317] px-3 py-2">{ok}</p>}
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => { setForm(VACIO); setError(null); setOk(null) }}>Limpiar</Button>
           <Button type="submit" disabled={!valido || crear.isPending} loading={crear.isPending}>
             {!crear.isPending && <Save className="h-4 w-4" aria-hidden="true" />} Guardar registro ambiental

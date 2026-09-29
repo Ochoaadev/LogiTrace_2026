@@ -192,7 +192,9 @@ export default function FlujoOperativoPage() {
         <div className="flex gap-4 overflow-x-auto">{FLUJO_COLUMNAS.map((c) => <Skeleton key={c.value} className="h-96 w-72 flex-shrink-0" />)}</div>
       ) : (
         <DndContext sensors={sensors} onDragStart={({ active }) => setActivo(active.id)} onDragEnd={onDragEnd} onDragCancel={() => setActivo(null)}>
-          <div className="flex gap-3 overflow-x-auto pb-4">
+          {/* relative: las etiquetas sr-only (posición absoluta) de las tarjetas quedaban fuera del
+              recorte del scroll y ensanchaban la página */}
+          <div className="relative flex gap-3 overflow-x-auto pb-4">
             {FLUJO_COLUMNAS.map((col) => (
               <Columna
                 key={col.value}

@@ -4,8 +4,9 @@ import { hora, temp } from './formato'
 
 const SERIE = '#0f62fe' // validado: contraste ≥ 3:1 sobre blanco
 const CRITICO = '#da1e28' // color de estado reservado (siempre con etiqueta)
-const REJILLA = '#e0e0e0'
-const TINTA = '#525252'
+// Variables del tema: la gráfica se adapta al modo claro / oscuro
+const REJILLA = 'var(--color-gray-100)'
+const TINTA = 'var(--color-gray-600)'
 
 const ALTO = 220
 const M = { top: 20, right: 16, bottom: 28, left: 48 }
@@ -151,17 +152,17 @@ export function CurvaTermica({ cadenaFrio }) {
                 cy={p.py}
                 r={i === activo ? 6 : 4}
                 fill={p.fueraDeRango ? CRITICO : SERIE}
-                stroke="#fff"
+                stroke="var(--lt-capa)"
                 strokeWidth="2"
               />
             ))}
 
             {/* Etiquetas directas selectivas: primera y última medición */}
-            <text x={primero.px} y={primero.py - 10} textAnchor="start" fontSize="11" fill="#161616" className="font-mono">
+            <text x={primero.px} y={primero.py - 10} textAnchor="start" fontSize="11" fill="var(--color-gray-900)" className="font-mono">
               {temp(primero.temperaturaC)}
             </text>
             {ultimo !== primero && (
-              <text x={ultimo.px} y={ultimo.py - 10} textAnchor="end" fontSize="11" fill="#161616" className="font-mono">
+              <text x={ultimo.px} y={ultimo.py - 10} textAnchor="end" fontSize="11" fill="var(--color-gray-900)" className="font-mono">
                 {temp(ultimo.temperaturaC)}
               </text>
             )}

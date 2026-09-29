@@ -22,7 +22,7 @@ const TONO_VALOR = {
  */
 export function KpiCard({ label, value, detail, icon: Icon, tone = 'default', loading = false, className }) {
   return (
-    <section className={cn('bg-white p-5 flex flex-col gap-3', className)} aria-label={label}>
+    <section className={cn('bg-white p-5 flex flex-col gap-3 animar-kpi', className)} aria-label={label}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="label-caps leading-snug">{label}</h2>
         {Icon && (

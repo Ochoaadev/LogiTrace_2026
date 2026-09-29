@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useCallback } from 'react'
 import { authService } from '../services/authService'
+import { sesion } from '../lib/sesion'
 
 export const AuthContext = createContext(null)
 
@@ -9,25 +10,16 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null)
 
   const clearSession = useCallback(() => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
+    sesion.limpiar()
     setAccessToken(null)
     setUser(null)
   }, [])
 
   const loadSession = useCallback(async () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('usuario')
-    if (localStorage.getItem('accessToken') === 'undefined') localStorage.removeItem('accessToken')
-    if (localStorage.getItem('refreshToken') === 'undefined') localStorage.removeItem('refreshToken')
-    if (localStorage.getItem('user') === 'undefined') localStorage.removeItem('user')
+    const token = sesion.get('accessToken')
+    const savedUser = sesion.get('user')
 
-    const token = localStorage.getItem('accessToken')
-    const savedUser = localStorage.getItem('user')
-    const savedRefreshToken = localStorage.getItem('refreshToken')
-
-    if (token && savedUser && savedUser !== 'undefined') {
+    if (token && savedUser) {
       setAccessToken(token)
       try {
         setUser(JSON.parse(savedUser))
@@ -42,7 +34,7 @@ export function AuthProvider({ children }) {
         // Antes se guardaba el cuerpo entero: tras recargar se perdía el rol y el menú quedaba vacío.
         const { data: me } = await authService.getMe()
         setUser(me)
-        localStorage.setItem('user', JSON.stringify(me))
+        sesion.actualizarUsuario(me)
       } catch {
         clearSession()
       }
@@ -54,12 +46,11 @@ export function AuthProvider({ children }) {
     loadSession()
   }, [loadSession])
 
-  const login = async (email, password) => {
+  // recordar: la sesión sobrevive al cierre del navegador (localStorage) o termina con él
+  const login = async (email, password, recordar = true) => {
     const response = await authService.login(email, password)
     const { user: userData, accessToken, refreshToken } = response.data
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    localStorage.setItem('user', JSON.stringify(userData))
+    sesion.guardar({ accessToken, refreshToken, user: userData }, recordar)
     setAccessToken(accessToken)
     setUser(userData)
     return response
@@ -68,9 +59,7 @@ export function AuthProvider({ children }) {
   const register = async (data) => {
     const response = await authService.register(data)
     const { user: userData, accessToken, refreshToken } = response.data
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    localStorage.setItem('user', JSON.stringify(userData))
+    sesion.guardar({ accessToken, refreshToken, user: userData })
     setAccessToken(accessToken)
     setUser(userData)
     return response

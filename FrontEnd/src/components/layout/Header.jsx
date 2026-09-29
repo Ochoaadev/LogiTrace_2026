@@ -3,6 +3,7 @@ import { Network, Clock, User, LogOut, Menu } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import api from '@/services/api'
 import { cn } from '@/lib/utils'
+import { TemaToggle } from '@/components/ui/TemaToggle'
 
 const ROL_LABELS = {
   ADMINISTRADOR: 'Administrador',
@@ -29,7 +30,7 @@ function Header({ onMenuClick }) {
   return (
     <header className="h-16 flex-shrink-0 bg-white border-b border-gray-100 flex items-stretch z-30">
       {/* Marca: mismo ancho que el sidebar */}
-      <div className="flex items-center gap-3 px-4 lg:w-72 lg:border-r lg:border-gray-100">
+      <div className="flex items-center gap-2 sm:gap-3 pl-3 pr-1 sm:px-4 lg:w-72 lg:border-r lg:border-gray-100">
         <button
           type="button"
           onClick={onMenuClick}
@@ -47,16 +48,20 @@ function Header({ onMenuClick }) {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-between gap-4 px-4 lg:px-6 min-w-0">
+      <div className="flex-1 flex items-center justify-between gap-2 sm:gap-4 pl-2 pr-2 sm:px-4 lg:px-6 min-w-0">
+        {/* Compacto según el ancho: en celular solo el punto, en tablet "En línea", completo en escritorio */}
         <div
-          className="hidden md:inline-flex items-center gap-2 bg-gray-50 px-3 py-1.5 text-xs text-gray-900"
+          className="inline-flex items-center gap-2 bg-gray-50 px-2.5 md:px-3 py-1.5 text-xs text-gray-900 whitespace-nowrap"
           role="status"
+          aria-label={online ? 'En línea: servidor local y base de datos disponibles' : 'Sin conexión con el servidor'}
+          title={online ? 'En línea · Servidor Local / BD' : 'Sin conexión con el servidor'}
         >
-          <span className={cn('h-2 w-2 rounded-full', online ? 'bg-success' : 'bg-danger')} aria-hidden="true" />
-          {online ? 'En línea · Servidor Local / BD' : 'Sin conexión con el servidor'}
+          <span className={cn('h-2 w-2 rounded-full flex-shrink-0', online ? 'bg-success' : 'bg-danger')} aria-hidden="true" />
+          <span className="hidden md:inline" aria-hidden="true">{online ? 'En línea' : 'Sin conexión'}</span>
+          {online && <span className="hidden xl:inline" aria-hidden="true">· Servidor Local / BD</span>}
         </div>
 
-        <div className="flex items-center gap-4 lg:gap-6 ml-auto">
+        <div className="flex items-center gap-1 sm:gap-4 lg:gap-6 ml-auto">
           <span className="hidden lg:inline-flex items-center gap-2 text-sm text-gray-700">
             <Clock className="h-4 w-4" aria-hidden="true" />
             Venezuela (UTC-4)
@@ -69,7 +74,9 @@ function Header({ onMenuClick }) {
               {user?.documento && ` · ${user.documento}`}
             </p>
           </div>
-          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0" aria-hidden="true">
+          <TemaToggle className="sm:-mr-2 lg:-mr-3" />
+          {/* Decorativo: se oculta en celulares muy angostos para que quepan tema y salida */}
+          <div className="hidden min-[360px]:flex h-10 w-10 rounded-full bg-primary items-center justify-center flex-shrink-0" aria-hidden="true">
             <User className="h-5 w-5 text-white" />
           </div>
           <button
