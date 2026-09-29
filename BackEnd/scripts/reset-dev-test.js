@@ -29,10 +29,10 @@ async function main() {
 
   // Reset incidencia
   await prisma.incidencia.updateMany({
-    where: { estado: { in: ['RESUELTA', 'CERRADA', 'EN_GESTION'] } },
-    data: { estado: 'ABIERTA', resueltaPorId: null, fechaResolucion: null },
+    where: { estado: { in: ['EN_REVISION', 'EN_ATENCION', 'RESUELTA', 'CERRADA'] } },
+    data: { estado: 'REPORTADA', resueltaPorId: null, fechaResolucion: null },
   })
-  console.log('Incidencias -> ABIERTA')
+  console.log('Incidencias -> REPORTADA')
 
   // Reset despacho-pedido state for incidencia
   await prisma.despachoPedido.updateMany({

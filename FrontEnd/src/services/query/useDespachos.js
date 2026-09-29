@@ -9,6 +9,16 @@ export function useDespachos(filters = {}, pagination = { page: 1, limit: 10 }) 
   })
 }
 
+// Indicadores del módulo 03 (tarjetas, pestañas y resumen de flota)
+export function useDespachosResumen() {
+  return useQuery({
+    queryKey: ['despachos', 'resumen'],
+    queryFn: () => despachoService.getResumen(),
+    select: (res) => res.data,
+    staleTime: 30_000,
+  })
+}
+
 export function useDespacho(id) {
   return useQuery({
     queryKey: ['despachos', id],
@@ -22,6 +32,7 @@ export function useFlujoOperativo() {
   return useQuery({
     queryKey: ['despachos', 'flujo-operativo'],
     queryFn: () => despachoService.getFlujoOperativo(),
+    select: (res) => res.data,
     staleTime: 15_000,
   })
 }
@@ -31,7 +42,10 @@ export function useCreateDespacho() {
   return useMutation({
     mutationFn: (data) => despachoService.create(data),
     onSuccess: () => {
+      // Crear un despacho cambia el estado de sus pedidos y del repartidor
       queryClient.invalidateQueries({ queryKey: ['despachos'] })
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['catalogos', 'repartidores'] })
     },
   })
 }
@@ -55,6 +69,9 @@ export function useUpdateEstadoDespacho() {
       queryClient.invalidateQueries({ queryKey: ['despachos'] })
       queryClient.invalidateQueries({ queryKey: ['despachos', id] })
       queryClient.invalidateQueries({ queryKey: ['despachos', 'flujo-operativo'] })
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['trazabilidad'] })
+      queryClient.invalidateQueries({ queryKey: ['catalogos', 'repartidores'] })
     },
   })
 }

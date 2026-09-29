@@ -2,6 +2,7 @@ const prisma = require('../../config/database')
 const { hashPassword, comparePassword } = require('../auth/auth.service')
 const { success, error } = require('../../utils/response')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listUsuarios(query) {
   const { page, limit, skip } = getPagination(query)
@@ -42,7 +43,7 @@ async function getUsuarioById(id) {
   })
 
   if (!usuario) {
-    throw new Error('Usuario no encontrado')
+    throw new AppError('Usuario no encontrado', 404)
   }
 
   return usuario
@@ -55,7 +56,7 @@ async function createUsuario(data) {
     where: { email: email.toLowerCase() },
   })
   if (existingEmail) {
-    throw new Error('El email ya está registrado')
+    throw new AppError('El email ya está registrado', 409)
   }
 
   if (documento) {
@@ -63,7 +64,7 @@ async function createUsuario(data) {
       where: { documento },
     })
     if (existingDoc) {
-      throw new Error('El documento ya está registrado')
+      throw new AppError('El documento ya está registrado', 409)
     }
   }
 
@@ -103,7 +104,7 @@ async function createUsuario(data) {
 async function updateUsuario(id, data, currentUser) {
   const usuario = await prisma.usuario.findUnique({ where: { id } })
   if (!usuario) {
-    throw new Error('Usuario no encontrado')
+    throw new AppError('Usuario no encontrado', 404)
   }
 
   if (data.email && data.email !== usuario.email) {
@@ -111,7 +112,7 @@ async function updateUsuario(id, data, currentUser) {
       where: { email: data.email.toLowerCase() },
     })
     if (existing) {
-      throw new Error('El email ya está en uso')
+      throw new AppError('El email ya está en uso', 400)
     }
   }
 
@@ -120,7 +121,7 @@ async function updateUsuario(id, data, currentUser) {
       where: { documento: data.documento },
     })
     if (existing) {
-      throw new Error('El documento ya está en uso')
+      throw new AppError('El documento ya está en uso', 400)
     }
   }
 
@@ -142,12 +143,12 @@ async function updateUsuario(id, data, currentUser) {
 
 async function changeEstado(id, activo, currentUser) {
   if (id === currentUser.sub) {
-    throw new Error('No puedes desactivarte a ti mismo')
+    throw new AppError('No puedes desactivarte a ti mismo', 400)
   }
 
   const usuario = await prisma.usuario.findUnique({ where: { id } })
   if (!usuario) {
-    throw new Error('Usuario no encontrado')
+    throw new AppError('Usuario no encontrado', 404)
   }
 
   if (usuario.rol === 'ADMINISTRADOR' && !activo) {
@@ -155,7 +156,7 @@ async function changeEstado(id, activo, currentUser) {
       where: { rol: 'ADMINISTRADOR', activo: true },
     })
     if (adminCount <= 1) {
-      throw new Error('Debe haber al menos un administrador activo')
+      throw new AppError('Debe haber al menos un administrador activo', 400)
     }
   }
 
@@ -171,12 +172,12 @@ async function changeEstado(id, activo, currentUser) {
 
 async function changeRol(id, rol, currentUser) {
   if (id === currentUser.sub) {
-    throw new Error('No puedes cambiarte el rol a ti mismo')
+    throw new AppError('No puedes cambiarte el rol a ti mismo', 400)
   }
 
   const usuario = await prisma.usuario.findUnique({ where: { id } })
   if (!usuario) {
-    throw new Error('Usuario no encontrado')
+    throw new AppError('Usuario no encontrado', 404)
   }
 
   if (usuario.rol === 'ADMINISTRADOR' && rol !== 'ADMINISTRADOR') {
@@ -184,7 +185,7 @@ async function changeRol(id, rol, currentUser) {
       where: { rol: 'ADMINISTRADOR', activo: true },
     })
     if (adminCount <= 1) {
-      throw new Error('Debe haber al menos un administrador activo')
+      throw new AppError('Debe haber al menos un administrador activo', 400)
     }
   }
 
@@ -216,12 +217,12 @@ async function changeRol(id, rol, currentUser) {
 async function changePassword(userId, { passwordActual, passwordNueva }) {
   const usuario = await prisma.usuario.findUnique({ where: { id: userId } })
   if (!usuario) {
-    throw new Error('Usuario no encontrado')
+    throw new AppError('Usuario no encontrado', 404)
   }
 
   const valid = await comparePassword(passwordActual, usuario.passwordHash)
   if (!valid) {
-    throw new Error('La contraseña actual es incorrecta')
+    throw new AppError('La contraseña actual es incorrecta', 400)
   }
 
   const passwordHash = await hashPassword(passwordNueva)

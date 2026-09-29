@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listMotivosDevolucion(query) {
   const { page, limit, skip } = getPagination(query)
@@ -30,30 +31,30 @@ async function listMotivosDevolucion(query) {
 
 async function getMotivoDevolucionById(id) {
   const motivo = await prisma.motivoDevolucion.findUnique({ where: { id } })
-  if (!motivo) throw new Error('Motivo de devolución no encontrado')
+  if (!motivo) throw new AppError('Motivo de devolución no encontrado', 404)
   return motivo
 }
 
 async function createMotivoDevolucion(data) {
   const existing = await prisma.motivoDevolucion.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.motivoDevolucion.create({ data })
 }
 
 async function updateMotivoDevolucion(id, data) {
   const motivo = await prisma.motivoDevolucion.findUnique({ where: { id } })
-  if (!motivo) throw new Error('Motivo de devolución no encontrado')
+  if (!motivo) throw new AppError('Motivo de devolución no encontrado', 404)
 
   return prisma.motivoDevolucion.update({ where: { id }, data })
 }
 
 async function deleteMotivoDevolucion(id) {
   const motivo = await prisma.motivoDevolucion.findUnique({ where: { id } })
-  if (!motivo) throw new Error('Motivo de devolución no encontrado')
+  if (!motivo) throw new AppError('Motivo de devolución no encontrado', 404)
 
   const hasDevoluciones = await prisma.devolucion.count({ where: { motivoId: id } })
-  if (hasDevoluciones > 0) throw new Error('No se puede eliminar: tiene devoluciones asociadas')
+  if (hasDevoluciones > 0) throw new AppError('No se puede eliminar: tiene devoluciones asociadas', 400)
 
   return prisma.motivoDevolucion.delete({ where: { id } })
 }

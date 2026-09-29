@@ -77,6 +77,9 @@ const evaluacionDetalleValidation = [
   body('ubicacionId')
     .optional()
     .isUUID().withMessage('Ubicación inválida'),
+  body('tipoResiduoId')
+    .optional()
+    .isUUID().withMessage('Tipo de residuo inválido'),
 ]
 
 const listDevolucionesValidation = [
@@ -88,6 +91,7 @@ const listDevolucionesValidation = [
   query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
   query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
   query('search').optional().isString().withMessage('Búsqueda inválida'),
+  query('activas').optional().isBoolean().withMessage('activas debe ser true/false'),
 ]
 
 module.exports = {

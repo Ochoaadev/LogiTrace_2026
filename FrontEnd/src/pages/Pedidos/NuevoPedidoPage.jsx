@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -93,7 +93,7 @@ export default function NuevoPedidoPage() {
   const renderStepIndicator = () => (
     <div className="flex items-center justify-between mb-8">
       {STEPS.map((s, i) => (
-        <React.Fragment key={s.id}>
+        <Fragment key={s.id}>
           <div className="flex items-center">
             <div className={cn(
               'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium',
@@ -110,7 +110,7 @@ export default function NuevoPedidoPage() {
           {i < STEPS.length - 1 && (
             <div className={cn('flex-1 h-1 mx-2', i + 1 < step ? 'bg-primary' : 'bg-gray-200')} />
           )}
-        </React.Fragment>
+        </Fragment>
       ))}
     </div>
   )

@@ -26,6 +26,12 @@ router.get(
 )
 
 router.get(
+  '/resumen',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  devolucionController.getResumenDevoluciones
+)
+
+router.get(
   '/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
   devolucionController.getDevolucionById

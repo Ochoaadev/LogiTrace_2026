@@ -63,8 +63,8 @@ async function evaluarDevolucion(req, res, next) {
 
 async function evaluarDetalle(req, res, next) {
   try {
-    const { detalleDevolucionId, estadoProducto, decision, loteId, ubicacionId } = req.body
-    const devolucion = await devolucionService.evaluarDetalle(req.params.id, { detalleDevolucionId, estadoProducto, decision, loteId, ubicacionId }, req.user.sub)
+    const { detalleDevolucionId, estadoProducto, decision, loteId, ubicacionId, tipoResiduoId } = req.body
+    const devolucion = await devolucionService.evaluarDetalle(req.params.id, { detalleDevolucionId, estadoProducto, decision, loteId, ubicacionId, tipoResiduoId }, req.user.sub)
     return success(res, devolucion, 'Detalle evaluado')
   } catch (err) {
     next(err)
@@ -90,7 +90,17 @@ async function deleteDevolucion(req, res, next) {
   }
 }
 
+async function getResumenDevoluciones(req, res, next) {
+  try {
+    const resumen = await devolucionService.getResumenDevoluciones()
+    return success(res, resumen, 'Resumen de devoluciones obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
+  getResumenDevoluciones,
   listDevoluciones,
   getDevolucionById,
   createDevolucion,

@@ -5,6 +5,8 @@ const {
   listReportesValidation,
   rendimientoValidation,
   kpiValidation,
+  timelineValidation,
+  limitValidation,
 } = require('./reporte.validation')
 const { validationMiddleware } = require('../../middlewares/validationMiddleware')
 const { authMiddleware } = require('../../middlewares/authMiddleware')
@@ -20,6 +22,14 @@ router.get(
   validationMiddleware,
   reporteController.getDashboardKPIs
 )
+
+const DASHBOARD_ROLES = ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR']
+
+router.get('/pedidos-por-estado', roleMiddleware(...DASHBOARD_ROLES), reporteController.getPedidosPorEstado)
+router.get('/timeline', roleMiddleware(...DASHBOARD_ROLES), timelineValidation, validationMiddleware, reporteController.getTimelinePedidos)
+router.get('/top-clientes', roleMiddleware(...DASHBOARD_ROLES), limitValidation, validationMiddleware, reporteController.getTopClientes)
+router.get('/actividad', roleMiddleware(...DASHBOARD_ROLES), limitValidation, validationMiddleware, reporteController.getActividadReciente)
+router.get('/alertas', roleMiddleware(...DASHBOARD_ROLES), reporteController.getAlertas)
 
 router.get(
   '/pedidos',

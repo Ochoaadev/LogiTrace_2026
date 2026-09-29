@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listClientes(query) {
   const { page, limit, skip } = getPagination(query)
@@ -30,28 +31,28 @@ async function listClientes(query) {
 
 async function getClienteById(id) {
   const cliente = await prisma.cliente.findUnique({ where: { id } })
-  if (!cliente) throw new Error('Cliente no encontrado')
+  if (!cliente) throw new AppError('Cliente no encontrado', 404)
   return cliente
 }
 
 async function createCliente(data) {
   if (data.numeroDocumento) {
     const existing = await prisma.cliente.findUnique({ where: { numeroDocumento: data.numeroDocumento } })
-    if (existing) throw new Error('El número de documento ya existe')
+    if (existing) throw new AppError('El número de documento ya existe', 409)
   }
   const existing = await prisma.cliente.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.cliente.create({ data })
 }
 
 async function updateCliente(id, data) {
   const cliente = await prisma.cliente.findUnique({ where: { id } })
-  if (!cliente) throw new Error('Cliente no encontrado')
+  if (!cliente) throw new AppError('Cliente no encontrado', 404)
 
   if (data.numeroDocumento && data.numeroDocumento !== cliente.numeroDocumento) {
     const existing = await prisma.cliente.findUnique({ where: { numeroDocumento: data.numeroDocumento } })
-    if (existing) throw new Error('El número de documento ya existe')
+    if (existing) throw new AppError('El número de documento ya existe', 409)
   }
 
   return prisma.cliente.update({ where: { id }, data })
@@ -59,10 +60,10 @@ async function updateCliente(id, data) {
 
 async function deleteCliente(id) {
   const cliente = await prisma.cliente.findUnique({ where: { id } })
-  if (!cliente) throw new Error('Cliente no encontrado')
+  if (!cliente) throw new AppError('Cliente no encontrado', 404)
 
   const hasPedidos = await prisma.pedido.count({ where: { clienteId: id } })
-  if (hasPedidos > 0) throw new Error('No se puede eliminar: tiene pedidos asociados')
+  if (hasPedidos > 0) throw new AppError('No se puede eliminar: tiene pedidos asociados', 400)
 
   return prisma.cliente.delete({ where: { id } })
 }

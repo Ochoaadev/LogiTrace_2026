@@ -60,7 +60,29 @@ async function deleteIncidencia(req, res, next) {
   }
 }
 
+async function getResumenIncidencias(req, res, next) {
+  try {
+    const resumen = await incidenciaService.getResumenIncidencias()
+    return success(res, resumen, 'Resumen de incidencias obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function exportCsv(req, res, next) {
+  try {
+    const csv = await incidenciaService.exportIncidenciasCsv(req.query)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="novedades-${new Date().toISOString().slice(0, 10)}.csv"`)
+    return res.send(csv)
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
+  getResumenIncidencias,
+  exportCsv,
   listIncidencias,
   getIncidenciaById,
   createIncidencia,

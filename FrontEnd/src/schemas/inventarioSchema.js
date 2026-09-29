@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ArrowDown, ArrowRightLeft, ArrowUp, Minus, Package, RotateCcw, Trash2 } from 'lucide-react'
 
 export const inventarioSchema = z.object({
   ubicacionId: z.string().uuid('Ubicación requerida'),
@@ -27,12 +28,12 @@ export const ajusteSchema = z.object({
 })
 
 export const TIPOS_MOVIMIENTO = [
-  { value: 'ENTRADA', label: 'Entrada', color: 'success', icon: 'ArrowDown' },
-  { value: 'SALIDA', label: 'Salida', color: 'danger', icon: 'ArrowUp' },
-  { value: 'AJUSTE', label: 'Ajuste', color: 'warning', icon: 'Minus' },
-  { value: 'REINGRESO', label: 'Reingreso', color: 'info', icon: 'RotateCcw' },
-  { value: 'TRASLADO', label: 'Traslado', color: 'primary', icon: 'ArrowRightLeft' },
-  { value: 'DESCARTE', label: 'Descarte', color: 'danger', icon: 'Trash2' },
+  { value: 'ENTRADA', label: 'Entrada', color: 'success', icon: ArrowDown },
+  { value: 'SALIDA', label: 'Salida', color: 'danger', icon: ArrowUp },
+  { value: 'AJUSTE', label: 'Ajuste', color: 'warning', icon: Minus },
+  { value: 'REINGRESO', label: 'Reingreso', color: 'info', icon: RotateCcw },
+  { value: 'TRASLADO', label: 'Traslado', color: 'primary', icon: ArrowRightLeft },
+  { value: 'DESCARTE', label: 'Descarte', color: 'danger', icon: Trash2 },
 ]
 
 export const ESTADOS_LOTE = [
@@ -43,7 +44,7 @@ export const ESTADOS_LOTE = [
 ]
 
 export function getTipoMovimientoConfig(tipo) {
-  return TIPOS_MOVIMIENTO.find(t => t.value === tipo) || { color: 'default', label: tipo, icon: 'Package' }
+  return TIPOS_MOVIMIENTO.find(t => t.value === tipo) || { color: 'default', label: tipo, icon: Package }
 }
 
 export function getEstadoLoteConfig(estado) {

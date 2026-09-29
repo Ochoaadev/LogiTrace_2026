@@ -10,6 +10,7 @@ import PedidoDetallePage from '../pages/Pedidos/PedidoDetallePage'
 import NuevoPedidoPage from '../pages/Pedidos/NuevoPedidoPage'
 import DespachosPage from '../pages/Despachos/DespachosPage'
 import DespachoDetallePage from '../pages/Despachos/DespachoDetallePage'
+import NuevoDespachoPage from '../pages/Despachos/NuevoDespachoPage'
 import FlujoOperativoPage from '../pages/Despachos/FlujoOperativoPage'
 import IncidenciasPage from '../pages/Incidencias/IncidenciasPage'
 import IncidenciaDetallePage from '../pages/Incidencias/IncidenciaDetallePage'
@@ -50,6 +51,7 @@ function AppRoutes() {
           <Route path="/pedidos/:id" element={<PedidoDetallePage />} />
 
           <Route path="/despachos" element={<DespachosPage />} />
+          <Route path="/despachos/nuevo" element={<NuevoDespachoPage />} />
           <Route path="/despachos/:id" element={<DespachoDetallePage />} />
           <Route path="/despachos/flujo" element={<FlujoOperativoPage />} />
 

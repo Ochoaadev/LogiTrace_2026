@@ -9,6 +9,16 @@ export function usePedidos(filters = {}, pagination = { page: 1, limit: 10 }) {
   })
 }
 
+// Indicadores del módulo 02 (tarjetas y paneles de la lista)
+export function usePedidosResumen() {
+  return useQuery({
+    queryKey: ['pedidos', 'resumen'],
+    queryFn: () => pedidoService.getResumen(),
+    select: (res) => res.data,
+    staleTime: 30_000,
+  })
+}
+
 export function usePedido(id) {
   return useQuery({
     queryKey: ['pedidos', id],
@@ -46,6 +56,23 @@ export function useUpdateEstadoPedido() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] })
       queryClient.invalidateQueries({ queryKey: ['pedidos', id] })
+    },
+  })
+}
+
+// Cambia el estado usando el endpoint que corresponde: preparar y listo-para-despacho tienen
+// endpoints propios; el resto de transiciones va por PATCH /estado.
+export function useAvanzarPedido() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, estado }) => {
+      if (estado === 'EN_PREPARACION') return pedidoService.preparar(id)
+      if (estado === 'LISTO_PARA_DESPACHO') return pedidoService.listoDespacho(id)
+      return pedidoService.updateEstado(id, estado)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['trazabilidad'] })
     },
   })
 }

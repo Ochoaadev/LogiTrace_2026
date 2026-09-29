@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listGestoresResiduo(query) {
   const { page, limit, skip } = getPagination(query)
@@ -34,30 +35,30 @@ async function getGestorResiduoById(id) {
     where: { id },
     include: { residuos: { take: 5, orderBy: { fechaGeneracion: 'desc' } } },
   })
-  if (!gestor) throw new Error('Gestor de residuo no encontrado')
+  if (!gestor) throw new AppError('Gestor de residuo no encontrado', 404)
   return gestor
 }
 
 async function createGestorResiduo(data) {
   const existing = await prisma.gestorResiduo.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.gestorResiduo.create({ data })
 }
 
 async function updateGestorResiduo(id, data) {
   const gestor = await prisma.gestorResiduo.findUnique({ where: { id } })
-  if (!gestor) throw new Error('Gestor de residuo no encontrado')
+  if (!gestor) throw new AppError('Gestor de residuo no encontrado', 404)
 
   return prisma.gestorResiduo.update({ where: { id }, data })
 }
 
 async function deleteGestorResiduo(id) {
   const gestor = await prisma.gestorResiduo.findUnique({ where: { id } })
-  if (!gestor) throw new Error('Gestor de residuo no encontrado')
+  if (!gestor) throw new AppError('Gestor de residuo no encontrado', 404)
 
   const hasResiduos = await prisma.residuo.count({ where: { gestorId: id } })
-  if (hasResiduos > 0) throw new Error('No se puede eliminar: tiene residuos asociados')
+  if (hasResiduos > 0) throw new AppError('No se puede eliminar: tiene residuos asociados', 400)
 
   return prisma.gestorResiduo.delete({ where: { id } })
 }

@@ -15,13 +15,23 @@ api.interceptors.request.use((config) => {
   if (token && token !== 'undefined') {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // Los filtros sin valor ("", null, undefined) no se envían: el backend valida con
+  // optional(), que acepta un parámetro ausente pero rechaza "estado=" con 400.
+  if (config.params) {
+    config.params = Object.fromEntries(
+      Object.entries(config.params).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+    )
+  }
   return config
 })
 
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401) {
+    // En /auth/login un 401 significa credenciales incorrectas: se deja que la página muestre
+    // el mensaje en lugar de recargar /login y perderlo.
+    const isLoginRequest = error.config?.url?.includes('/auth/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')

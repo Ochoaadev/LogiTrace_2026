@@ -8,6 +8,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [accessToken, setAccessToken] = useState(null)
 
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('user')
+    setAccessToken(null)
+    setUser(null)
+  }, [])
+
   const loadSession = useCallback(async () => {
     localStorage.removeItem('token')
     localStorage.removeItem('usuario')
@@ -24,31 +32,27 @@ export function AuthProvider({ children }) {
       try {
         setUser(JSON.parse(savedUser))
       } catch {
+        // Usuario guardado corrupto: limpiar y terminar la carga (antes se quedaba en loading)
         clearSession()
+        setLoading(false)
         return
       }
       try {
-        const response = await authService.getMe()
-        setUser(response)
-        localStorage.setItem('user', JSON.stringify(response))
+        // El interceptor devuelve el cuerpo { success, message, data }; el usuario está en data.
+        // Antes se guardaba el cuerpo entero: tras recargar se perdía el rol y el menú quedaba vacío.
+        const { data: me } = await authService.getMe()
+        setUser(me)
+        localStorage.setItem('user', JSON.stringify(me))
       } catch {
         clearSession()
       }
     }
     setLoading(false)
-  }, [])
+  }, [clearSession])
 
   useEffect(() => {
     loadSession()
   }, [loadSession])
-
-  const clearSession = () => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
-    setAccessToken(null)
-    setUser(null)
-  }
 
   const login = async (email, password) => {
     const response = await authService.login(email, password)

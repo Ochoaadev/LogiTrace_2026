@@ -12,6 +12,16 @@ const PRODUCTO_COLUMNS = [
   { key: 'esPerecedero', header: 'Perecedero', render: (v) => (v ? 'Sí' : 'No') },
 ]
 
+// Fuera del componente: antes se declaraba después del useState que lo usa y la página fallaba al abrir
+const initialForm = {
+  codigo: '',
+  nombre: '',
+  descripcion: '',
+  unidadBase: 'unidad',
+  esPerecedero: true,
+  activo: true,
+}
+
 export default function ProductosPage() {
   const navigate = useNavigate()
   const [productos, setProductos] = useState([])
@@ -24,15 +34,6 @@ export default function ProductosPage() {
   const [formData, setFormData] = useState(initialForm)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-
-  const initialForm = {
-    codigo: '',
-    nombre: '',
-    descripcion: '',
-    unidadBase: 'unidad',
-    esPerecedero: true,
-    activo: true,
-  }
 
   const fetchProductos = async () => {
     setLoading(true)

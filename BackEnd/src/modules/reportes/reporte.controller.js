@@ -64,6 +64,51 @@ async function getDashboardKPIs(req, res, next) {
   }
 }
 
+async function getPedidosPorEstado(req, res, next) {
+  try {
+    const data = await reporteService.getPedidosPorEstado()
+    return success(res, data, 'Pedidos por estado obtenidos')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getTimelinePedidos(req, res, next) {
+  try {
+    const data = await reporteService.getTimelinePedidos(req.query)
+    return success(res, data, 'Timeline de pedidos obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getTopClientes(req, res, next) {
+  try {
+    const data = await reporteService.getTopClientes(req.query)
+    return success(res, data, 'Top clientes obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getActividadReciente(req, res, next) {
+  try {
+    const data = await reporteService.getActividadReciente(req.query)
+    return success(res, data, 'Actividad reciente obtenida')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getAlertas(req, res, next) {
+  try {
+    const data = await reporteService.getAlertas()
+    return success(res, data, 'Alertas obtenidas')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
   getReportePedidos,
   getReporteDespachos,
@@ -72,4 +117,9 @@ module.exports = {
   getReporteInventario,
   getReporteRendimiento,
   getDashboardKPIs,
+  getPedidosPorEstado,
+  getTimelinePedidos,
+  getTopClientes,
+  getActividadReciente,
+  getAlertas,
 }

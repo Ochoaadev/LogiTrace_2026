@@ -22,6 +22,13 @@ router.get(
   pedidoController.listPedidos
 )
 
+// Indicadores del módulo (antes de '/:id' para que "resumen" no se tome como id)
+router.get(
+  '/resumen',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  pedidoController.getResumenPedidos
+)
+
 router.get(
   '/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),

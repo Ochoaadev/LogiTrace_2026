@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listZonas(query) {
   const { page, limit, skip } = getPagination(query)
@@ -34,33 +35,33 @@ async function getZonaById(id) {
     where: { id },
     include: { rutas: true, pedidos: { take: 5, orderBy: { fechaHora: 'desc' } } },
   })
-  if (!zona) throw new Error('Zona no encontrada')
+  if (!zona) throw new AppError('Zona no encontrada', 404)
   return zona
 }
 
 async function createZona(data) {
   const existing = await prisma.zonaDespacho.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.zonaDespacho.create({ data })
 }
 
 async function updateZona(id, data) {
   const zona = await prisma.zonaDespacho.findUnique({ where: { id } })
-  if (!zona) throw new Error('Zona no encontrada')
+  if (!zona) throw new AppError('Zona no encontrada', 404)
 
   return prisma.zonaDespacho.update({ where: { id }, data })
 }
 
 async function deleteZona(id) {
   const zona = await prisma.zonaDespacho.findUnique({ where: { id } })
-  if (!zona) throw new Error('Zona no encontrada')
+  if (!zona) throw new AppError('Zona no encontrada', 404)
 
   const hasPedidos = await prisma.pedido.count({ where: { zonaId: id } })
-  if (hasPedidos > 0) throw new Error('No se puede eliminar: tiene pedidos asociados')
+  if (hasPedidos > 0) throw new AppError('No se puede eliminar: tiene pedidos asociados', 400)
 
   const hasRutas = await prisma.ruta.count({ where: { zonaId: id } })
-  if (hasRutas > 0) throw new Error('No se puede eliminar: tiene rutas asociadas')
+  if (hasRutas > 0) throw new AppError('No se puede eliminar: tiene rutas asociadas', 400)
 
   return prisma.zonaDespacho.delete({ where: { id } })
 }

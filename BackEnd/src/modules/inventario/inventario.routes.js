@@ -1,11 +1,13 @@
 const express = require('express')
 const router = express.Router()
+const { param } = require('express-validator')
 
 const {
   listInventarioValidation,
   createInventarioValidation,
   updateInventarioValidation,
   movimientoValidation,
+  ajustarStockValidation,
   listInventarioValidation: listInventarioValidationAlias,
   listMovimientosValidation,
 } = require('./inventario.validation')
@@ -51,6 +53,14 @@ router.get(
 )
 
 router.get(
+  '/movimientos/export/csv',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  listMovimientosValidation,
+  validationMiddleware,
+  inventarioController.exportKardexCsv
+)
+
+router.get(
   '/movimientos/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   inventarioController.getMovimientoById
@@ -64,12 +74,22 @@ router.post(
   inventarioController.registrarMovimiento
 )
 
+router.patch(
+  '/lote/:id/ajustar',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  ajustarStockValidation,
+  validationMiddleware,
+  inventarioController.ajustarStock
+)
+
 // ============================================================
 // INVENTARIO (Stock por lote/ubicación) - Rutas con parámetros al final
 // ============================================================
 router.get(
   '/lote/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  param('id').isUUID().withMessage('Lote inválido'),
+  validationMiddleware,
   inventarioController.getLoteDetalle
 )
 

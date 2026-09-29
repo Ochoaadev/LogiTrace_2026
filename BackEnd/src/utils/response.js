@@ -1,9 +1,11 @@
-function success(res, data = null, message = 'Operación exitosa') {
-  return res.json({
-    success: true,
-    message,
-    data,
-  })
+// Los controladores de listas pasan { total, page, limit } como meta; antes esos argumentos
+// se ignoraban y el frontend nunca recibía la paginación (ni el 201 de las creaciones).
+function success(res, data = null, message = 'Operación exitosa', status = 200, meta = null) {
+  const body = { success: true, message, data }
+  if (meta && meta.total !== undefined && meta.limit) {
+    body.pagination = { ...meta, totalPages: Math.ceil(meta.total / meta.limit) }
+  }
+  return res.status(status).json(body)
 }
 
 function error(res, message = 'Error en la operación', status = 500) {

@@ -95,9 +95,18 @@ const listDespachosValidation = [
   query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
   query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
   query('search').optional().isString().withMessage('Búsqueda inválida'),
+  query('vista').optional().isIn(['en_ruta', 'pendientes', 'completados_hoy']).withMessage('Vista inválida'),
+]
+
+const agregarPedidoValidation = [
+  param('id').isUUID().withMessage('ID inválido'),
+  body('pedidoId')
+    .notEmpty().withMessage('El pedido es obligatorio')
+    .isUUID().withMessage('Pedido inválido'),
 ]
 
 module.exports = {
+  agregarPedidoValidation,
   createDespachoValidation,
   updateDespachoValidation,
   changeEstadoDespachoValidation,

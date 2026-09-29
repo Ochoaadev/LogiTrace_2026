@@ -5,6 +5,7 @@ export function useKPIs() {
   return useQuery({
     queryKey: ['dashboard', 'kpis'],
     queryFn: () => reporteService.getKPIs(),
+    select: (res) => res.data,
     staleTime: 60_000,
   })
 }
@@ -13,6 +14,7 @@ export function usePedidosPorEstado() {
   return useQuery({
     queryKey: ['dashboard', 'pedidos-por-estado'],
     queryFn: () => reporteService.getPedidosPorEstado(),
+    select: (res) => res.data,
     staleTime: 60_000,
   })
 }
@@ -21,6 +23,7 @@ export function useTimelinePedidos(dias = 30) {
   return useQuery({
     queryKey: ['dashboard', 'timeline', dias],
     queryFn: () => reporteService.getTimelinePedidos(dias),
+    select: (res) => res.data,
     staleTime: 60_000,
   })
 }
@@ -29,6 +32,7 @@ export function useTopClientes(limit = 5) {
   return useQuery({
     queryKey: ['dashboard', 'top-clientes', limit],
     queryFn: () => reporteService.getTopClientes(limit),
+    select: (res) => res.data,
     staleTime: 60_000,
   })
 }
@@ -37,6 +41,7 @@ export function useActividadReciente(limit = 10) {
   return useQuery({
     queryKey: ['dashboard', 'actividad', limit],
     queryFn: () => reporteService.getActividadReciente(limit),
+    select: (res) => res.data,
     staleTime: 30_000,
   })
 }
@@ -45,6 +50,7 @@ export function useAlertas() {
   return useQuery({
     queryKey: ['dashboard', 'alertas'],
     queryFn: () => reporteService.getAlertas(),
+    select: (res) => res.data,
     staleTime: 60_000,
   })
 }

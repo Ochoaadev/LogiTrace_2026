@@ -1,3 +1,4 @@
+const { param } = require('express-validator')
 const express = require('express')
 const router = express.Router()
 
@@ -54,6 +55,7 @@ const tipoIncidenciaController = require('./tipoIncidencia.controller')
 const motivoDevolucionController = require('./motivoDevolucion.controller')
 const tipoResiduoController = require('./tipoResiduo.controller')
 const gestorResiduoController = require('./gestorResiduo.controller')
+const catalogoOperativoController = require('./catalogoOperativo.controller')
 
 // Todas las rutas requieren autenticación
 router.use(authMiddleware)
@@ -129,5 +131,20 @@ router.get('/gestores-residuo/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'
 router.post('/gestores-residuo', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), createGestorResiduoValidation, validationMiddleware, gestorResiduoController.createGestorResiduo)
 router.put('/gestores-residuo/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), updateGestorResiduoValidation, validationMiddleware, gestorResiduoController.updateGestorResiduo)
 router.delete('/gestores-residuo/:id', roleMiddleware('ADMINISTRADOR'), gestorResiduoController.deleteGestorResiduo)
+
+// ============================================================
+// CATÁLOGOS OPERATIVOS (solo lectura; CRUD en Fase 10)
+// ============================================================
+const LECTURA = roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR')
+const uuidParam = [param('id').isUUID().withMessage('ID inválido'), validationMiddleware]
+for (const [path, handlers] of Object.entries({
+  repartidores: catalogoOperativoController.repartidores,
+  rutas: catalogoOperativoController.rutas,
+  lotes: catalogoOperativoController.lotes,
+  ubicaciones: catalogoOperativoController.ubicaciones,
+})) {
+  router.get(`/${path}`, LECTURA, handlers.list)
+  router.get(`/${path}/:id`, LECTURA, ...uuidParam, handlers.getById)
+}
 
 module.exports = router

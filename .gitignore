@@ -1,2 +1,19 @@
-Figma
-DiagramaErdeLogiTrace.png
+# Root
+Figma/
+DiagramaERdeLogiTrace.png
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

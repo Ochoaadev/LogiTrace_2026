@@ -13,6 +13,18 @@ const CLIENTE_COLUMNS = [
   { key: 'telefono', header: 'Teléfono' },
 ]
 
+// Fuera del componente: antes se declaraba después del useState que lo usa y la página fallaba al abrir
+const initialForm = {
+  codigo: '',
+  razonSocial: '',
+  nombreContacto: '',
+  tipoDocumento: 'J',
+  numeroDocumento: '',
+  telefono: '',
+  email: '',
+  activo: true,
+}
+
 export default function ClientesPage() {
   const [clientes, setClientes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,17 +36,6 @@ export default function ClientesPage() {
   const [formData, setFormData] = useState(initialForm)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-
-  const initialForm = {
-    codigo: '',
-    razonSocial: '',
-    nombreContacto: '',
-    tipoDocumento: 'J',
-    numeroDocumento: '',
-    telefono: '',
-    email: '',
-    activo: true,
-  }
 
   const fetchClientes = async () => {
     setLoading(true)

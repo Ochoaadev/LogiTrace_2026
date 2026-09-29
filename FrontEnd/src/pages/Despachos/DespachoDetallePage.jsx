@@ -1,396 +1,398 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, LayoutGrid, TriangleAlert, UserRound, Thermometer, Snowflake, AlertCircle } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { Label } from '@/components/ui/Label'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/DropdownMenu'
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogCancel } from '@/components/ui/Dialog'
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from '@/components/ui/AlertDialog'
-import { DataTable, createTableColumns } from '@/components/ui/Table'
-import { Skeleton, SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDespacho, useUpdateEstadoDespacho, useAsignarRepartidor } from '@/services/query/useDespachos'
-import { usePedidos } from '@/services/query/usePedidos'
-import { useIncidencias } from '@/services/query/useIncidencias'
-import { despachoService } from '@/services/despachoService'
-import { getEstadoConfig, FLUJO_COLUMNAS, getSiguientesEstados } from '@/schemas/despachoSchema'
+import { useCreateIncidencia } from '@/services/query/useIncidencias'
+import { useRepartidores, useTiposIncidencia } from '@/services/query/useCatalogos'
+import { useTrazabilidadDespacho } from '@/services/query/useTrazabilidad'
+import { getEstadoConfig, getSiguientesEstados, ACCION_DESPACHO } from '@/schemas/despachoSchema'
+import { LineaTemporal } from '@/pages/Trazabilidad/components/LineaTemporal'
+import { MapaRecorrido } from '@/pages/Trazabilidad/components/MapaRecorrido'
+import { CurvaTermica } from '@/pages/Trazabilidad/components/CurvaTermica'
+import { RegistrarTemperaturaDialog } from '@/pages/Trazabilidad/components/Dialogos'
 import { cn } from '@/lib/utils'
-import {
-  Package, Truck, MapPin, AlertCircle, RotateCcw,
-  MoreHorizontal, Calendar, Clock, User, CheckCircle,
-  XCircle, AlertCircle as AlertCircleIcon, RotateCcw as RotateCcwIcon,
-  GripVertical, ArrowRight, MapPin as MapPinIcon
-} from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
 
-const ESTADO_TRANSITIONS = {
-  PREPARACION: ['LISTO_PARA_DESPACHO', 'CANCELADO'],
-  LISTO_PARA_DESPACHO: ['EN_RUTA', 'PREPARACION', 'CANCELADO'],
-  EN_RUTA: ['ENTREGADO', 'CON_INCIDENCIA', 'DEVUELTO'],
-  ENTREGADO: [],
-  CON_INCIDENCIA: ['EN_RUTA', 'DEVUELTO', 'CANCELADO'],
-  DEVUELTO: ['PREPARACION', 'CANCELADO'],
-  CANCELADO: [],
+const ESTADO_PARADA = {
+  PENDIENTE: { label: 'Pendiente', color: 'default' },
+  EN_RUTA: { label: 'En ruta', color: 'primary' },
+  EN_ESPERA: { label: 'En espera', color: 'warning' },
+  ENTREGADO: { label: 'Entregado', color: 'success' },
+  CON_INCIDENCIA: { label: 'Con incidencia', color: 'danger' },
+  DEVUELTO: { label: 'Devuelto', color: 'warning' },
+  REPROGRAMADO: { label: 'Reprogramado', color: 'default' },
 }
 
-const ICONOS_ESTADO = {
-  PREPARACION: Package,
-  LISTO_PARA_DESPACHO: Truck,
-  EN_RUTA: MapPin,
-  ENTREGADO: CheckCircle,
-  CON_INCIDENCIA: AlertCircleIcon,
-  DEVUELTO: RotateCcwIcon,
-  CANCELADO: XCircle,
+// Estados que piden un motivo antes de confirmarse
+const REQUIERE_MOTIVO = ['CANCELADO']
+
+const fechaHora = (d) =>
+  d ? new Date(d).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+const num = (v) => (v === null || v === undefined ? null : Number(v))
+const mensajeError = (err, porDefecto) => err?.errors?.[0]?.mensaje || err?.message || porDefecto
+
+function Dato({ etiqueta, children }) {
+  return (
+    <div className="bg-white p-4">
+      <p className="label-caps">{etiqueta}</p>
+      <p className="mt-2 text-lg font-semibold text-gray-900">{children}</p>
+    </div>
+  )
 }
 
 export default function DespachoDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { can } = usePermissions()
-  const { user } = useAuth()
 
-  const { data: despacho, isLoading, error, refetch } = useDespacho(id)
-  const { data: pedidos } = usePedidos({ page: 1, limit: 50 })
-  const { data: incidencias } = useIncidencias({ page: 1, limit: 10 })
+  const { data: despacho, isLoading, error } = useDespacho(id)
+  const timeline = useTrazabilidadDespacho(id)
+  const cambiarEstado = useUpdateEstadoDespacho()
 
-  const updateEstado = useUpdateEstadoDespacho()
-  const asignarRepartidor = useAsignarRepartidor()
+  const [dialogo, setDialogo] = useState(null) // { tipo, ... }
+  const [errorAccion, setErrorAccion] = useState(null)
 
-  const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const [cancelMotivo, setCancelMotivo] = useState('')
-  const [showAsignarDialog, setShowAsignarDialog] = useState(false)
-  const [repartidorId, setRepartidorId] = useState('')
+  if (isLoading) return <SkeletonCard />
 
-  const despachoData = despacho?.data
-  const currentEstado = despachoData?.estado
-  const allowedNextStates = ESTADO_TRANSITIONS[currentEstado] || []
-
-  if (isLoading) {
+  const d = despacho?.data
+  if (error || !d) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Detalle del Despacho</h1>
-            <p className="text-gray-600 mt-1">Cargando...</p>
-          </div>
-        </div>
-        <SkeletonCard />
-      </div>
-    )
-  }
-
-  if (error || !despachoData) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" />
+      <div className="bg-white text-center py-12">
+        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-gray-900">Despacho no encontrado</h2>
-        <Button className="mt-4" onClick={() => navigate('/despachos')}>Volver a lista</Button>
+        <Button className="mt-4" onClick={() => navigate('/despachos')}>Volver a despachos</Button>
       </div>
     )
   }
 
-  const handleEstadoChange = async (nuevoEstado) => {
+  const estado = getEstadoConfig(d.estado)
+  const siguientes = getSiguientesEstados(d.estado)
+  // CON_INCIDENCIA se alcanza reportando la incidencia en la parada (queda el registro completo)
+  const acciones = siguientes.filter((e) => e !== 'CON_INCIDENCIA')
+  const puedeCambiar = can('despachos.change_state')
+  const editable = ['PROGRAMADO', 'PREPARANDO'].includes(d.estado)
+  const enRuta = ['EN_RUTA', 'CON_INCIDENCIA'].includes(d.estado)
+
+  const entregadas = d.pedidos.filter((p) => p.estado === 'ENTREGADO').length
+
+  const ejecutar = async (nuevoEstado, observaciones) => {
+    setErrorAccion(null)
     try {
-      await updateEstado.mutateAsync({ id, estado: nuevoEstado, observaciones: '' })
-      refetch()
+      await cambiarEstado.mutateAsync({ id, estado: nuevoEstado, observaciones })
+      setDialogo(null)
     } catch (err) {
-      console.error('Error:', err)
+      setErrorAccion(mensajeError(err, 'No se pudo cambiar el estado'))
     }
   }
 
-  const handleCancel = async () => {
-    if (!cancelMotivo.trim()) return
-    try {
-      await updateEstado.mutateAsync({ id, estado: 'CANCELADO', observaciones: cancelMotivo })
-      refetch()
-      setShowCancelDialog(false)
-      setCancelMotivo('')
-    } catch (err) {
-      console.error('Error:', err)
-    }
+  // Datos en el formato de los componentes de trazabilidad
+  const gps = {
+    puntos: [...d.ubicacionesGPS].reverse().map((u) => ({ lat: num(u.latitud), lng: num(u.longitud), fechaHora: u.fechaHora, velocidadKmh: num(u.velocidadKmh) })),
+    destinos: d.pedidos
+      .filter((p) => p.pedido?.latitudEntrega && p.pedido?.longitudEntrega)
+      .map((p) => ({ lat: num(p.pedido.latitudEntrega), lng: num(p.pedido.longitudEntrega), direccion: p.pedido.direccionEntrega, etiqueta: `Parada ${p.ordenParada} · ${p.pedido.codigo}` })),
   }
-
-  const handleAsignarRepartidor = async () => {
-    if (!repartidorId) return
-    try {
-      await asignarRepartidor.mutateAsync({ id, repartidorId })
-      refetch()
-      setShowAsignarDialog(false)
-      setRepartidorId('')
-    } catch (err) {
-      console.error('Error:', err)
-    }
-  }
-
-  const getEstadoIcon = (estado) => ICONOS_ESTADO[estado] || Truck
-
-  const formatFecha = (fecha) => fecha ? new Date(fecha).toLocaleString('es-ES', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  }) : '—'
-
-  const timelineEvents = [
-    { estado: 'PREPARACION', label: 'Preparación', fecha: despachoData.fechaPreparacion, user: despachoData.preparadoPor },
-    { estado: 'LISTO_PARA_DESPACHO', label: 'Listo para Despacho', fecha: despachoData.fechaListo, user: despachoData.listadoPor },
-    { estado: 'EN_RUTA', label: 'En Ruta', fecha: despachoData.fechaSalida, user: despachoData.repartidor?.nombre },
-    { estado: 'ENTREGADO', label: 'Entregado', fecha: despachoData.fechaEntrega, user: despachoData.entregadoPor },
-  ].filter(e => e.fecha)
-
-  const pedidosDespacho = pedidos?.data?.filter(p => p.despachoId === id) || []
+  const registros = [...d.registrosTemperatura].reverse().map((r) => ({
+    id: r.id,
+    fechaHora: r.fechaHora,
+    temperaturaC: Number(r.temperaturaC),
+    origen: r.ubicacion?.nombre || r.tipoRegistro.replaceAll('_', ' ').toLowerCase(),
+    usuario: r.usuario?.nombre,
+    observaciones: r.observaciones,
+    fueraDeRango: Number(r.temperaturaC) > d.limiteCriticoC,
+  }))
+  const cadenaFrio = { limiteCriticoC: d.limiteCriticoC, registros, ultima: registros.at(-1) || null, conforme: registros.length ? registros.every((r) => !r.fueraDeRango) : null }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{despachoData.codigo}</h1>
-            <Badge variant={getEstadoConfig(currentEstado).color} className="text-sm">
-              {getEstadoConfig(currentEstado).label}
-            </Badge>
-            <Badge variant={getEstadoConfig(despachoData.prioridad).color}>
-              {getEstadoConfig(despachoData.prioridad).label}
-            </Badge>
-          </div>
-          <p className="text-gray-600 mt-1">Repartidor: {despachoData.repartidor?.nombre || 'Sin asignar'}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreHorizontal className="h-4 w-4 mr-1" /> Acciones
+    <div>
+      <PageHeader
+        modulo="03"
+        seccion="Despachos y asignación de rutas · detalle"
+        title={`Despacho ${d.codigo}`}
+        description={`${d.pedidos.length} parada(s) · ${d.repartidor?.usuario?.nombre || 'sin repartidor'}${d.vehiculo ? ` · ${d.vehiculo.codigo}` : ''}`}
+        tags={<Badge variant={estado.color}>{estado.label}</Badge>}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => navigate('/despachos')}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/despachos/flujo')}>
+              <LayoutGrid className="h-4 w-4" aria-hidden="true" /> Tablero
+            </Button>
+          </>
+        }
+      />
+
+      {puedeCambiar && (acciones.length > 0 || editable) && (
+        <section className="bg-white px-6 py-4 mb-6 flex flex-wrap items-center gap-3" aria-label="Acciones del despacho">
+          <span className="label-caps mr-2">Acciones:</span>
+          {acciones.map((e) =>
+            REQUIERE_MOTIVO.includes(e) ? (
+              <Button key={e} size="sm" variant="ghost" className="text-danger" onClick={() => setDialogo({ tipo: 'estado', estado: e })}>
+                {ACCION_DESPACHO[e]}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Cambiar Estado</DropdownMenuLabel>
-              {allowedNextStates.map(estado => (
-                <DropdownMenuItem
-                  key={estado}
-                  onClick={() => handleEstadoChange(estado)}
-                  disabled={updateEstado.isPending}
-                >
-                  {getEstadoConfig(estado).label}
-                </DropdownMenuItem>
-              ))}
-              {allowedNextStates.length === 0 && (
-                <DropdownMenuItem className="text-gray-400 cursor-not-allowed">
-                  Flujo completado
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setShowAsignarDialog(true)}
-                disabled={!can('despachos.assign_repartidor') || asignarRepartidor.isPending}
-              >
-                <User className="h-4 w-4" /> Asignar Repartidor
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowCancelDialog(true)}
-                disabled={!can('despachos.cancel') || updateEstado.isPending}
-                className="text-danger focus:text-danger"
-              >
-                <XCircle className="h-4 w-4" /> Cancelar Despacho
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/despachos')}>Volver</Button>
-        </div>
+            ) : (
+              <Button key={e} size="sm" onClick={() => ejecutar(e)} disabled={cambiarEstado.isPending} loading={cambiarEstado.isPending && cambiarEstado.variables?.estado === e}>
+                {ACCION_DESPACHO[e]}
+              </Button>
+            )
+          )}
+          {editable && can('despachos.assign_repartidor') && (
+            <Button size="sm" variant="secondary" onClick={() => setDialogo({ tipo: 'repartidor' })}>
+              <UserRound className="h-4 w-4" aria-hidden="true" /> {d.repartidorId ? 'Cambiar repartidor' : 'Asignar repartidor'}
+            </Button>
+          )}
+          {d.estado !== 'CANCELADO' && (
+            <Button size="sm" variant="secondary" onClick={() => setDialogo({ tipo: 'temperatura' })}>
+              <Thermometer className="h-4 w-4" aria-hidden="true" /> Registrar temperatura
+            </Button>
+          )}
+          {errorAccion && <p role="alert" className="w-full text-sm text-danger">{errorAccion}</p>}
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Dato etiqueta="Salida">{fechaHora(d.fechaHoraSalida)}</Dato>
+        <Dato etiqueta="Cierre">{fechaHora(d.fechaHoraCierre)}</Dato>
+        <Dato etiqueta="Entregas">{entregadas} / {d.pedidos.length}</Dato>
+        <Dato etiqueta="Precinto"><span className="font-mono">{d.precintoSeguridad || '—'}</span></Dato>
       </div>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Salida</p><p className="font-medium text-gray-900">{formatFecha(despachoData.fechaSalida)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Llegada Estimada</p><p className="font-medium text-gray-900">{formatFecha(despachoData.fechaLlegadaEstimada)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Entrega Real</p><p className="font-medium text-gray-900">{formatFecha(despachoData.fechaEntrega)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Pedidos</p><p className="font-medium text-gray-900">{pedidosDespacho.length}</p></CardContent></Card>
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="info" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="info">Información</TabsTrigger>
-          <TabsTrigger value="pedidos">Pedidos ({pedidosDespacho.length})</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
-          <TabsTrigger value="tracking">Tracking</TabsTrigger>
+      <Tabs defaultValue="paradas" className="bg-white px-4 pb-4">
+        <TabsList>
+          <TabsTrigger value="paradas">Paradas ({d.pedidos.length})</TabsTrigger>
+          <TabsTrigger value="recorrido">Recorrido y cadena de frío</TabsTrigger>
+          <TabsTrigger value="historial">Historial ({timeline.data?.length ?? '…'})</TabsTrigger>
+          <TabsTrigger value="unidad">Unidad y ruta</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="info" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader><CardTitle>Datos Generales</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <dt className="text-gray-500">Código</dt><dd className="font-mono font-medium">{despachoData.codigo}</dd>
-                  <dt className="text-gray-500">Estado</dt><dd><Badge variant={getEstadoConfig(currentEstado).color}>{getEstadoConfig(currentEstado).label}</Badge></dd>
-                  <dt className="text-gray-500">Repartidor</dt><dd>{despachoData.repartidor?.nombre || 'Sin asignar'}</dd>
-                  <dt className="text-gray-500">Vehículo</dt><dd>{despachoData.vehiculo?.placa || '—'}</dd>
-                  <dt className="text-gray-500">Ruta</dt><dd>{despachoData.ruta?.nombre || '—'}</dd>
-                  <dt className="text-gray-500">Salida</dt><dd>{formatFecha(despachoData.fechaSalida)}</dd>
-                  <dt className="text-gray-500">Llegada Estimada</dt><dd>{formatFecha(despachoData.fechaLlegadaEstimada)}</dd>
-                  <dt className="text-gray-500">Entrega</dt><dd>{formatFecha(despachoData.fechaEntrega)}</dd>
-                </dl>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle>Observaciones</CardTitle></CardHeader>
-              <CardContent><p className="text-gray-600 whitespace-pre-wrap">{despachoData.observaciones || 'Sin observaciones'}</p></CardContent>
-            </Card>
+        <TabsContent value="paradas">
+          <ol className="space-y-3">
+            {d.pedidos.map((dp) => {
+              const e = ESTADO_PARADA[dp.estado] || { label: dp.estado, color: 'default' }
+              const abierta = ['PENDIENTE', 'EN_RUTA', 'EN_ESPERA'].includes(dp.estado)
+              return (
+                <li key={dp.id} className={cn('p-4 bg-gray-50', dp.estado === 'CON_INCIDENCIA' && 'bg-danger-light')}>
+                  <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+                    <span className="font-mono text-lg font-semibold text-primary">#{dp.ordenParada}</span>
+                    <div className="flex-1 min-w-[14rem]">
+                      <p className="text-sm font-semibold text-gray-900">
+                        <Link to={`/pedidos/${dp.pedidoId}`} className="font-mono text-primary hover:underline mr-2">{dp.pedido?.codigo}</Link>
+                        {dp.pedido?.cliente?.razonSocial}
+                      </p>
+                      <p className="text-xs text-gray-600">{dp.pedido?.direccionEntrega}{dp.pedido?.cliente?.telefono ? ` · ${dp.pedido.cliente.telefono}` : ''}</p>
+                      <p className="mt-1 text-xs text-gray-700">
+                        {dp.pedido?.detalles?.map((det) => `${Number(det.cantidad)} ${det.unidad} ${det.producto?.nombre}`).join(' · ')}
+                        {dp.detalles?.length > 0 && <span className="font-mono text-gray-600"> · lote {[...new Set(dp.detalles.map((x) => x.lote?.codigo))].join(', ')}</span>}
+                      </p>
+                      {dp.horaEntrega && <p className="mt-1 text-xs text-gray-700">Entregado {fechaHora(dp.horaEntrega)}{dp.receptor ? ` · recibió ${dp.receptor}` : ''}</p>}
+                    </div>
+                    <Badge variant={e.color}>{e.label}</Badge>
+                    {enRuta && abierta && can('incidencias.create') && (
+                      <Button size="sm" variant="ghost" className="text-danger" onClick={() => setDialogo({ tipo: 'incidencia', parada: dp })}>
+                        <TriangleAlert className="h-4 w-4" aria-hidden="true" /> Reportar incidencia
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        </TabsContent>
+
+        <TabsContent value="recorrido">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <MapaRecorrido gps={gps} zona={d.ruta?.nombre} />
+            <CurvaTermica cadenaFrio={cadenaFrio} />
           </div>
         </TabsContent>
 
-        <TabsContent value="pedidos">
-          <Card>
-            <CardContent className="p-0">
-              {pedidosDespacho.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    { accessorKey: 'codigo', header: 'Código', cell: (val) => <span className="font-mono text-sm">{val}</span> },
-                    { accessorKey: 'cliente', header: 'Cliente', cell: (_, row) => row.original.cliente?.razonSocial || '—' },
-                    { accessorKey: 'estado', header: 'Estado', cell: (val) => <Badge variant={getEstadoConfig(val).color}>{getEstadoConfig(val).label}</Badge> },
-                    { accessorKey: 'prioridad', header: 'Prioridad', cell: (val) => <Badge variant={getEstadoConfig(val).color}>{getEstadoConfig(val).label}</Badge> },
-                  ])}
-                  data={pedidosDespacho}
-                  keyField="id"
-                  onRowClick={(row) => navigate(`/pedidos/${row.id}`)}
-                  showPagination={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500">Sin pedidos asignados</div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="historial">
+          {timeline.isLoading ? <SkeletonCard /> : <LineaTemporal eventos={timeline.data || []} />}
         </TabsContent>
 
-        <TabsContent value="timeline">
-          <Card>
-            <CardContent className="p-4">
-              <div className="relative">
-                <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200" />
-                {timelineEvents.map((event, index) => {
-                  const isCurrent = event.estado === currentEstado
-                  const isPast = FLUJO_COLUMNAS.findIndex(e => e.value === event.estado) <= FLUJO_COLUMNAS.findIndex(e => e.value === currentEstado)
-                  const Icon = ICONOS_ESTADO[event.estado] || Truck
-                  const config = getEstadoConfig(event.estado)
-
-                  return (
-                    <div key={event.estado} className="relative pl-16 pb-8 last:pb-0">
-                      <div className={cn('absolute left-6 w-3 h-3 rounded-full border-2 flex items-center justify-center',
-                        isPast ? `bg-${config.color} border-${config.color}` : 'bg-white border-gray-300',
-                        isCurrent && 'ring-2 ring-offset-2 ring-primary'
-                      )}>
-                        {isPast && <CheckCircle className="h-2 w-2 text-white" />}
-                        {!isPast && <Icon className={cn('h-2.5 w-2.5', `text-${config.color}`)} />}
-                      </div>
-                      <div className={cn('bg-gray-50 rounded-lg p-4', isCurrent ? 'ring-2 ring-primary ring-offset-2' : '')}>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <p className={cn('font-medium', isCurrent ? 'text-primary' : 'text-gray-900')}>{event.label}</p>
-                            <p className="text-sm text-gray-500">{formatFecha(event.fecha)}</p>
-                            {event.user && <p className="text-xs text-gray-400 mt-1">Por: {event.user}</p>}
-                          </div>
-                          {isCurrent && <Badge variant="primary" className="self-start">Actual</Badge>}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {timelineEvents.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                    <p>Sin eventos registrados aún</p>
-                  </div>
-                )}
+        <TabsContent value="unidad">
+          <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 px-2">
+            {[
+              ['Repartidor', d.repartidor ? `${d.repartidor.usuario?.nombre}${d.repartidor.telefono ? ` · ${d.repartidor.telefono}` : ''}` : null],
+              ['Licencia', d.repartidor?.numeroLicencia],
+              ['Vehículo', d.vehiculo ? `${d.vehiculo.codigo} · ${d.vehiculo.tipo?.replaceAll('_', ' ').toLowerCase()}${d.vehiculo.placa ? ` · ${d.vehiculo.placa}` : ''}` : null],
+              ['Capacidad', d.vehiculo?.capacidadCarga ? `${Number(d.vehiculo.capacidadCarga)} ${d.vehiculo.unidadCapacidad || ''}` : null],
+              ['Vehículo térmico', d.vehiculo ? (d.vehiculo.esTermico ? <span className="inline-flex items-center gap-1"><Snowflake className="h-4 w-4 text-primary" aria-hidden="true" /> Sí</span> : 'No') : null],
+              ['Medio de conservación', d.medioConservacion],
+              ['Ruta', d.ruta ? `${d.ruta.codigo} · ${d.ruta.nombre}` : null],
+              ['Observaciones', d.observaciones],
+            ].map(([k, v]) => (
+              <div key={k} className="grid grid-cols-[11rem_1fr] gap-4 py-2 border-b border-gray-100">
+                <dt className="text-sm text-gray-600">{k}</dt>
+                <dd className="text-sm text-gray-900">{v || '—'}</dd>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="incidencias">
-          <Card>
-            <CardContent className="p-0">
-              {incidencias?.data?.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    { accessorKey: 'codigo', header: 'Código' },
-                    { accessorKey: 'tipoIncidencia', header: 'Tipo', cell: (_, row) => row.original.tipoIncidencia?.nombre || '—' },
-                    { accessorKey: 'estado', header: 'Estado', cell: (val) => <Badge variant={getEstadoConfig(val).color}>{getEstadoConfig(val).label}</Badge> },
-                    { accessorKey: 'fechaCreacion', header: 'Fecha', cell: (val) => formatFecha(val) },
-                  ])}
-                  data={incidencias.data}
-                  keyField="id"
-                  onRowClick={(row) => navigate(`/incidencias/${row.id}`)}
-                  showPagination={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500"><AlertCircle className="h-12 w-12 mx-auto text-gray-300 mb-2" /><p>Sin incidencias</p></div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tracking">
-          <Card>
-            <CardHeader><CardTitle>Tracking GPS (Próximamente)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
-                <MapPinIcon className="h-16 w-16" />
-                <p className="ml-4">Mapa de ruta y tracking en tiempo real</p>
-              </div>
-            </CardContent>
-          </Card>
+            ))}
+          </dl>
         </TabsContent>
       </Tabs>
 
-      {/* Cancel Dialog */}
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar Despacho</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo *</label>
-            <Textarea value={cancelMotivo} onChange={e => setCancelMotivo(e.target.value)} placeholder="Motivo..." rows={3} className="w-full" />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setShowCancelDialog(false); setCancelMotivo('') }}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} disabled={updateEstado.isPending || !cancelMotivo.trim()}>
-              {updateEstado.isPending ? 'Cancelando...' : 'Confirmar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Asignar Repartidor Dialog */}
-      <Dialog open={showAsignarDialog} onOpenChange={setShowAsignarDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Asignar Repartidor</DialogTitle><DialogDescription>Seleccione un repartidor disponible</DialogDescription></DialogHeader>
-          <div className="py-4">
-            <Select value={repartidorId} onValueChange={setRepartidorId}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-              <SelectContent>
-                {/* Repartidores se cargarían desde useRepartidores */}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <DialogCancel onClick={() => { setShowAsignarDialog(false); setRepartidorId('') }}>Cancelar</DialogCancel>
-            <DialogAction onClick={handleAsignarRepartidor} disabled={asignarRepartidor.isPending || !repartidorId}>
-              {asignarRepartidor.isPending ? 'Asignando...' : 'Asignar'}
-            </DialogAction>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {dialogo?.tipo === 'estado' && (
+        <MotivoDialog
+          titulo={`${ACCION_DESPACHO[dialogo.estado]} ${d.codigo}`}
+          descripcion="Los pedidos vuelven a 'Listo para despacho' y el repartidor queda disponible."
+          enviando={cambiarEstado.isPending}
+          error={errorAccion}
+          onConfirmar={(motivo) => ejecutar(dialogo.estado, motivo)}
+          onClose={() => { setDialogo(null); setErrorAccion(null) }}
+        />
+      )}
+      {dialogo?.tipo === 'repartidor' && <RepartidorDialog despacho={d} onClose={() => setDialogo(null)} />}
+      {dialogo?.tipo === 'incidencia' && <IncidenciaDialog despacho={d} parada={dialogo.parada} onClose={() => setDialogo(null)} />}
+      {dialogo?.tipo === 'temperatura' && (
+        <RegistrarTemperaturaDialog
+          open
+          onOpenChange={(o) => !o && setDialogo(null)}
+          expediente={{ logistica: { despachoId: d.id, codigo: d.codigo }, devoluciones: [], cadenaFrio: { limiteCriticoC: d.limiteCriticoC } }}
+        />
+      )}
     </div>
   )
 }
 
-function formatFecha(fecha) {
-  return fecha ? new Date(fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+function MotivoDialog({ titulo, descripcion, enviando, error, onConfirmar, onClose }) {
+  const [motivo, setMotivo] = useState('')
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={(e) => { e.preventDefault(); onConfirmar(motivo) }} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>{titulo}</DialogTitle>
+            <DialogDescription>{descripcion}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="motivo">Motivo</Label>
+            <Textarea id="motivo" rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} required />
+          </div>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <DialogCancel type="button">Volver</DialogCancel>
+            <Button type="submit" variant="danger" disabled={!motivo.trim() || enviando} loading={enviando}>Confirmar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RepartidorDialog({ despacho, onClose }) {
+  const asignar = useAsignarRepartidor()
+  const { data } = useRepartidores({ estado: 'DISPONIBLE' }, { page: 1, limit: 100 })
+  const disponibles = data?.data || []
+  const [repartidorId, setRepartidorId] = useState('')
+  const [error, setError] = useState(null)
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await asignar.mutateAsync({ id: despacho.id, repartidorId })
+      onClose()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo asignar el repartidor'))
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Repartidor de {despacho.codigo}</DialogTitle>
+            <DialogDescription>Actual: {despacho.repartidor?.usuario?.nombre || 'sin asignar'}. Solo se listan repartidores disponibles.</DialogDescription>
+          </DialogHeader>
+          <Select value={repartidorId} onValueChange={setRepartidorId}>
+            <SelectTrigger aria-label="Repartidor"><SelectValue placeholder={disponibles.length ? 'Seleccione un repartidor' : 'No hay repartidores disponibles'} /></SelectTrigger>
+            <SelectContent>
+              {disponibles.map((r) => <SelectItem key={r.id} value={r.id}>{r.usuario?.nombre}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <DialogCancel type="button">Cancelar</DialogCancel>
+            <Button type="submit" disabled={!repartidorId || asignar.isPending} loading={asignar.isPending}>Asignar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Reporte de incidencia sobre una parada del despacho (crea el registro en el módulo 04)
+function IncidenciaDialog({ despacho, parada, onClose }) {
+  const crear = useCreateIncidencia()
+  const { data } = useTiposIncidencia({ activo: 'true' }, { page: 1, limit: 100 })
+  const tipos = data?.data || []
+  const [form, setForm] = useState({ tipoIncidenciaId: '', descripcion: '', decisionOperativa: '' })
+  const [error, setError] = useState(null)
+  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await crear.mutateAsync({
+        despachoPedidoId: parada.id,
+        tipoIncidenciaId: form.tipoIncidenciaId,
+        descripcion: form.descripcion,
+        ...(form.decisionOperativa && { decisionOperativa: form.decisionOperativa }),
+      })
+      onClose()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo registrar la incidencia'))
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Reportar incidencia · parada #{parada.ordenParada}</DialogTitle>
+            <DialogDescription>
+              {parada.pedido?.codigo} · {parada.pedido?.cliente?.razonSocial} ({despacho.codigo}). El despacho pasará a "Con incidencia".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="tipo-inc">Tipo de incidencia</Label>
+            <Select value={form.tipoIncidenciaId} onValueChange={set('tipoIncidenciaId')}>
+              <SelectTrigger id="tipo-inc"><SelectValue placeholder="Seleccione el tipo" /></SelectTrigger>
+              <SelectContent>
+                {tipos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="desc-inc">Qué ocurrió</Label>
+            <Textarea id="desc-inc" rows={3} maxLength={1000} value={form.descripcion} onChange={(e) => set('descripcion')(e.target.value)} required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="dec-inc">Decisión operativa inmediata (opcional)</Label>
+            <Textarea id="dec-inc" rows={2} maxLength={500} value={form.decisionOperativa} onChange={(e) => set('decisionOperativa')(e.target.value)} />
+          </div>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <DialogCancel type="button">Cancelar</DialogCancel>
+            <Button type="submit" variant="danger" disabled={!form.tipoIncidenciaId || !form.descripcion.trim() || crear.isPending} loading={crear.isPending}>
+              Reportar incidencia
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
 }

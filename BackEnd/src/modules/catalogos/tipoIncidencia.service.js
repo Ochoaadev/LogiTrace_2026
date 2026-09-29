@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listTiposIncidencia(query) {
   const { page, limit, skip } = getPagination(query)
@@ -30,30 +31,30 @@ async function listTiposIncidencia(query) {
 
 async function getTipoIncidenciaById(id) {
   const tipo = await prisma.tipoIncidencia.findUnique({ where: { id } })
-  if (!tipo) throw new Error('Tipo de incidencia no encontrado')
+  if (!tipo) throw new AppError('Tipo de incidencia no encontrado', 404)
   return tipo
 }
 
 async function createTipoIncidencia(data) {
   const existing = await prisma.tipoIncidencia.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.tipoIncidencia.create({ data })
 }
 
 async function updateTipoIncidencia(id, data) {
   const tipo = await prisma.tipoIncidencia.findUnique({ where: { id } })
-  if (!tipo) throw new Error('Tipo de incidencia no encontrado')
+  if (!tipo) throw new AppError('Tipo de incidencia no encontrado', 404)
 
   return prisma.tipoIncidencia.update({ where: { id }, data })
 }
 
 async function deleteTipoIncidencia(id) {
   const tipo = await prisma.tipoIncidencia.findUnique({ where: { id } })
-  if (!tipo) throw new Error('Tipo de incidencia no encontrado')
+  if (!tipo) throw new AppError('Tipo de incidencia no encontrado', 404)
 
   const hasIncidencias = await prisma.incidencia.count({ where: { tipoIncidenciaId: id } })
-  if (hasIncidencias > 0) throw new Error('No se puede eliminar: tiene incidencias asociadas')
+  if (hasIncidencias > 0) throw new AppError('No se puede eliminar: tiene incidencias asociadas', 400)
 
   return prisma.tipoIncidencia.delete({ where: { id } })
 }

@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 function generateCodigo() {
   const fecha = new Date()
@@ -67,7 +68,7 @@ async function getResiduoById(id) {
       gestor: true,
     },
   })
-  if (!residuo) throw new Error('Residuo no encontrado')
+  if (!residuo) throw new AppError('Residuo no encontrado', 404)
   return residuo
 }
 
@@ -75,18 +76,18 @@ async function createResiduo(data, usuarioId) {
   const { tipoResiduoId, devolucionId, gestorId, cantidad, unidad, origen, observaciones } = data
 
   const tipoResiduo = await prisma.tipoResiduo.findUnique({ where: { id: tipoResiduoId } })
-  if (!tipoResiduo) throw new Error('Tipo de residuo no encontrado')
-  if (!tipoResiduo.activo) throw new Error('Tipo de residuo inactivo')
+  if (!tipoResiduo) throw new AppError('Tipo de residuo no encontrado', 404)
+  if (!tipoResiduo.activo) throw new AppError('Tipo de residuo inactivo', 400)
 
   if (devolucionId) {
     const devolucion = await prisma.devolucion.findUnique({ where: { id: devolucionId } })
-    if (!devolucion) throw new Error('Devolución no encontrada')
+    if (!devolucion) throw new AppError('Devolución no encontrada', 404)
   }
 
   if (gestorId) {
     const gestor = await prisma.gestorResiduo.findUnique({ where: { id: gestorId } })
-    if (!gestor) throw new Error('Gestor de residuo no encontrado')
-    if (!gestor.activo) throw new Error('Gestor inactivo')
+    if (!gestor) throw new AppError('Gestor de residuo no encontrado', 404)
+    if (!gestor.activo) throw new AppError('Gestor inactivo', 400)
   }
 
   const codigo = generateCodigo()
@@ -126,9 +127,9 @@ async function createResiduo(data, usuarioId) {
 
 async function updateResiduo(id, data) {
   const residuo = await prisma.residuo.findUnique({ where: { id } })
-  if (!residuo) throw new Error('Residuo no encontrado')
+  if (!residuo) throw new AppError('Residuo no encontrado', 404)
   if (['RETIRADO', 'DISPOSICION_FINAL', 'ANULADO'].includes(residuo.estado)) {
-    throw new Error('No se puede modificar un residuo en estado final')
+    throw new AppError('No se puede modificar un residuo en estado final', 400)
   }
 
   const updateData = {}
@@ -148,7 +149,7 @@ async function updateResiduo(id, data) {
 
 async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
   const residuo = await prisma.residuo.findUnique({ where: { id } })
-  if (!residuo) throw new Error('Residuo no encontrado')
+  if (!residuo) throw new AppError('Residuo no encontrado', 404)
 
   const estadoActual = residuo.estado
 
@@ -161,7 +162,7 @@ async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
   }
 
   if (!transicionesValidas[estadoActual]?.includes(nuevoEstado)) {
-    throw new Error(`Transición inválida: ${estadoActual} → ${nuevoEstado}`)
+    throw new AppError(`Transición inválida: ${estadoActual} → ${nuevoEstado}`, 400)
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -191,9 +192,9 @@ async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
 
 async function deleteResiduo(id) {
   const residuo = await prisma.residuo.findUnique({ where: { id } })
-  if (!residuo) throw new Error('Residuo no encontrado')
+  if (!residuo) throw new AppError('Residuo no encontrado', 404)
   if (residuo.estado !== 'REGISTRADO' && residuo.estado !== 'ANULADO') {
-    throw new Error('Solo se puede eliminar en REGISTRADO o ANULADO')
+    throw new AppError('Solo se puede eliminar en REGISTRADO o ANULADO', 400)
   }
 
   await prisma.residuo.delete({ where: { id } })

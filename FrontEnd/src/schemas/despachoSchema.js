@@ -1,44 +1,53 @@
 import { z } from 'zod'
+import { CalendarClock, CircleCheck, MapPin, Package, TriangleAlert, XCircle } from 'lucide-react'
 
+// Formulario "Nuevo despacho" (mismas reglas que createDespachoValidation en el backend)
 export const despachoSchema = z.object({
-  codigo: z.string().min(1, 'Código requerido'),
-  repartidorId: z.string().uuid('Repartidor inválido').optional().nullable(),
-  vehiculoId: z.string().uuid('Vehículo inválido').optional().nullable(),
-  rutaId: z.string().uuid('Ruta inválida').optional().nullable(),
-  fechaSalida: z.string().optional(),
-  fechaLlegadaEstimada: z.string().optional(),
+  repartidorId: z.string().uuid('Seleccione un repartidor'),
+  vehiculoId: z.string().uuid('Vehículo inválido').optional().or(z.literal('')),
+  rutaId: z.string().uuid('Ruta inválida').optional().or(z.literal('')),
+  medioConservacion: z.string().max(80, 'Máximo 80 caracteres').optional(),
+  precintoSeguridad: z.string().max(50, 'Máximo 50 caracteres').optional(),
   observaciones: z.string().max(500).optional(),
-  pedidoIds: z.array(z.string().uuid()).min(1, 'Debe asignar al menos un pedido'),
+  pedidoIds: z.array(z.string().uuid()).min(1, 'Seleccione al menos un pedido'),
 })
 
-export const despachoEstadoSchema = z.object({
-  estado: z.enum([
-    'PREPARACION', 'LISTO_PARA_DESPACHO', 'EN_RUTA', 'ENTREGADO', 'CON_INCIDENCIA', 'DEVUELTO', 'CANCELADO'
-  ]),
-  observaciones: z.string().max(500).optional(),
-})
-
+// Estados del enum EstadoDespacho del backend (schema.prisma)
 export const ESTADOS_DESPACHO = [
-  { value: 'PREPARACION', label: 'Preparación', color: 'info', icon: 'Package', order: 1 },
-  { value: 'LISTO_PARA_DESPACHO', label: 'Listo para Despacho', color: 'primary', icon: 'Truck', order: 2 },
-  { value: 'EN_RUTA', label: 'En Ruta', color: 'warning', icon: 'MapPin', order: 3 },
-  { value: 'ENTREGADO', label: 'Entregado', color: 'success', icon: 'CheckCircle', order: 4 },
-  { value: 'CON_INCIDENCIA', label: 'Con Incidencia', color: 'danger', icon: 'AlertCircle', order: 5 },
-  { value: 'DEVUELTO', label: 'Devuelto', color: 'default', icon: 'RotateCcw', order: 6 },
-  { value: 'CANCELADO', label: 'Cancelado', color: 'danger', icon: 'XCircle', order: 7 },
+  { value: 'PROGRAMADO', label: 'Programado', color: 'default', icon: CalendarClock },
+  { value: 'PREPARANDO', label: 'Preparando carga', color: 'info', icon: Package },
+  { value: 'EN_RUTA', label: 'En ruta', color: 'primary', icon: MapPin },
+  { value: 'CON_INCIDENCIA', label: 'Con incidencia', color: 'danger', icon: TriangleAlert },
+  { value: 'FINALIZADO', label: 'Finalizado', color: 'success', icon: CircleCheck },
+  { value: 'CANCELADO', label: 'Cancelado', color: 'default', icon: XCircle },
 ]
 
-export const FLUJO_COLUMNAS = ESTADOS_DESPACHO.filter(e => 
-  ['PREPARACION', 'LISTO_PARA_DESPACHO', 'EN_RUTA', 'ENTREGADO'].includes(e.value)
-)
+// Transiciones que acepta el backend (despacho.service.js → changeEstado). Mantener sincronizado.
+export const TRANSICIONES_DESPACHO = {
+  PROGRAMADO: ['PREPARANDO', 'CANCELADO'],
+  PREPARANDO: ['EN_RUTA', 'CANCELADO'],
+  EN_RUTA: ['CON_INCIDENCIA', 'FINALIZADO'],
+  CON_INCIDENCIA: ['EN_RUTA', 'CANCELADO'],
+  FINALIZADO: [],
+  CANCELADO: [],
+}
+
+// Texto del botón para pasar a cada estado
+export const ACCION_DESPACHO = {
+  PREPARANDO: 'Iniciar preparación',
+  EN_RUTA: 'Registrar salida a ruta',
+  CON_INCIDENCIA: 'Reportar incidencia en ruta',
+  FINALIZADO: 'Finalizar despacho',
+  CANCELADO: 'Cancelar despacho',
+}
+
+// Columnas del tablero de flujo operativo (los cancelados se consultan en la lista)
+export const FLUJO_COLUMNAS = ESTADOS_DESPACHO.filter((e) => e.value !== 'CANCELADO')
 
 export function getEstadoConfig(estado) {
-  return ESTADOS_DESPACHO.find(e => e.value === estado) || { color: 'default', label: estado, icon: 'Package' }
+  return ESTADOS_DESPACHO.find((e) => e.value === estado) || { color: 'default', label: estado, icon: Package }
 }
 
 export function getSiguientesEstados(estadoActual) {
-  const flujo = ['PREPARACION', 'LISTO_PARA_DESPACHO', 'EN_RUTA', 'ENTREGADO']
-  const idx = flujo.indexOf(estadoActual)
-  if (idx === -1 || idx === flujo.length - 1) return []
-  return flujo.slice(idx + 1, idx + 2)
+  return TRANSICIONES_DESPACHO[estadoActual] || []
 }

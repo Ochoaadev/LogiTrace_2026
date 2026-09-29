@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listTiposResiduo(query) {
   const { page, limit, skip } = getPagination(query)
@@ -30,30 +31,30 @@ async function listTiposResiduo(query) {
 
 async function getTipoResiduoById(id) {
   const tipo = await prisma.tipoResiduo.findUnique({ where: { id } })
-  if (!tipo) throw new Error('Tipo de residuo no encontrado')
+  if (!tipo) throw new AppError('Tipo de residuo no encontrado', 404)
   return tipo
 }
 
 async function createTipoResiduo(data) {
   const existing = await prisma.tipoResiduo.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.tipoResiduo.create({ data })
 }
 
 async function updateTipoResiduo(id, data) {
   const tipo = await prisma.tipoResiduo.findUnique({ where: { id } })
-  if (!tipo) throw new Error('Tipo de residuo no encontrado')
+  if (!tipo) throw new AppError('Tipo de residuo no encontrado', 404)
 
   return prisma.tipoResiduo.update({ where: { id }, data })
 }
 
 async function deleteTipoResiduo(id) {
   const tipo = await prisma.tipoResiduo.findUnique({ where: { id } })
-  if (!tipo) throw new Error('Tipo de residuo no encontrado')
+  if (!tipo) throw new AppError('Tipo de residuo no encontrado', 404)
 
   const hasResiduos = await prisma.residuo.count({ where: { tipoResiduoId: id } })
-  if (hasResiduos > 0) throw new Error('No se puede eliminar: tiene residuos asociados')
+  if (hasResiduos > 0) throw new AppError('No se puede eliminar: tiene residuos asociados', 400)
 
   return prisma.tipoResiduo.delete({ where: { id } })
 }

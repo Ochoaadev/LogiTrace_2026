@@ -1,19 +1,21 @@
+/* El import de la fuente debe ir antes de "tailwindcss": Tailwind v4 expande su propio
+   @import en el CSS resultante, y las reglas @import deben preceder a todo lo demás. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 
 @theme {
   /* Carbon Colors */
   --color-primary: #0f62fe;
   --color-primary-hover: #0043ce;
-  --color-primary-light: #e8f0fe;
+  --color-primary-light: #d0e2ff;
   --color-success: #198038;
-  --color-success-light: #d4f6e1;
+  --color-success-light: #a7f0ba;
   --color-danger: #da1e28;
-  --color-danger-light: #fde8e8;
+  --color-danger-light: #fff1f1;
   --color-warning: #f1c21b;
-  --color-warning-light: #fff8e1;
+  --color-warning-light: #fcf4d6;
   --color-info: #0f62fe;
-  --color-info-light: #e8f0fe;
+  --color-info-light: #edf5ff;
 
   /* Gray Scale Carbon */
   --color-gray-50: #f4f4f4;
@@ -37,7 +39,7 @@
 
   /* Font */
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* Spacing - 8px grid */
   --spacing-0: 0;
@@ -52,12 +54,16 @@
   --spacing-12: 3rem;
   --spacing-16: 4rem;
 
-  /* Border Radius - Carbon: cards 0, inputs/buttons 4px */
-  --radius-none: 0;
-  --radius-sm: 0.125rem;
-  --radius-md: 0.25rem;
-  --radius-lg: 0.5rem;
-  --radius-full: 9999px;
+  /* Border Radius - Carbon: esquinas rectas en todo el sistema (solo círculos con rounded-full).
+     Tailwind v4 lee estos tokens para rounded-sm/md/lg/xl, así que los componentes existentes
+     quedan rectos sin tocar cada clase. */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
 
   /* Shadows - Carbon minimal */
   --shadow-level1: 0 2px 6px rgba(0,0,0,0.1);
@@ -72,11 +78,21 @@
   font-family: var(--font-sans);
 }
 
+/* font-family en * pisaría la clase font-mono de Tailwind; se restituye explícitamente */
+.font-mono, .font-mono * {
+  font-family: var(--font-mono);
+}
+/* Permite volver a la fuente normal dentro de un bloque mono (p. ej. un nombre dentro de un KPI) */
+.font-mono .font-sans, .font-sans {
+  font-family: var(--font-sans);
+}
+
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--color-background);
+  background-color: var(--color-surface);
+  font-size: 14px;
   color: var(--color-text-primary);
 }
 
@@ -94,7 +110,6 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-gray-300);
-  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-gray-400);
@@ -110,4 +125,13 @@ body {
 ::selection {
   background-color: var(--color-primary-light);
   color: var(--color-primary);
+}
+
+/* Etiqueta Carbon: mayúsculas, espaciado amplio, 12px (encabezados de tarjeta, rótulos de campo) */
+@utility label-caps {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gray-700);
 }

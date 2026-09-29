@@ -114,6 +114,7 @@ const listPedidosValidation = [
   query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
   query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
   query('search').optional().isString().withMessage('Búsqueda inválida'),
+  query('vista').optional().isIn(['activos', 'historial']).withMessage('Vista inválida'),
 ]
 
 module.exports = {

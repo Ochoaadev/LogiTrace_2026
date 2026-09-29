@@ -3,16 +3,6 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 
-interface PaginationProps {
-  pageCount: number
-  currentPage: number
-  onPageChange: (page: number) => void
-  showFirstLast?: boolean
-  showPageNumbers?: boolean
-  maxPageNumbers?: number
-  className?: string
-}
-
 export function Pagination({
   pageCount,
   currentPage,
@@ -21,9 +11,7 @@ export function Pagination({
   showPageNumbers = true,
   maxPageNumbers = 5,
   className,
-}: PaginationProps) {
-  if (pageCount <= 1) return null
-
+}) {
   const pages = React.useMemo(() => {
     if (!showPageNumbers) return []
     if (pageCount <= maxPageNumbers) {
@@ -40,6 +28,8 @@ export function Pagination({
 
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }, [pageCount, currentPage, maxPageNumbers, showPageNumbers])
+
+  if (pageCount <= 1) return null
 
   return (
     <nav className={cn('flex items-center gap-1', className)} aria-label="Paginación">

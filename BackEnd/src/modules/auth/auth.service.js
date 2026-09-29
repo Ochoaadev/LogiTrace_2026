@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const prisma = require('../../config/database')
 const { jwtSecret, jwtExpiresIn } = require('../../config/env')
+const { AppError } = require('../../utils/AppError')
 
 const BCRYPT_ROUNDS = 12
 const REFRESH_EXPIRES_DAYS = 7
@@ -57,16 +58,16 @@ async function login(email, password) {
   })
 
   if (!user) {
-    throw new Error('Credenciales inválidas')
+    throw new AppError('Credenciales inválidas', 401)
   }
 
   if (!user.activo) {
-    throw new Error('Usuario desactivado')
+    throw new AppError('Usuario desactivado', 401)
   }
 
   const valid = await comparePassword(password, user.passwordHash)
   if (!valid) {
-    throw new Error('Credenciales inválidas')
+    throw new AppError('Credenciales inválidas', 401)
   }
 
   await prisma.usuario.update({
@@ -94,7 +95,7 @@ async function register(data) {
   })
 
   if (existing) {
-    throw new Error('El email ya está registrado')
+    throw new AppError('El email ya está registrado', 409)
   }
 
   if (documento) {
@@ -102,7 +103,7 @@ async function register(data) {
       where: { documento },
     })
     if (existingDoc) {
-      throw new Error('El documento ya está registrado')
+      throw new AppError('El documento ya está registrado', 409)
     }
   }
 
@@ -146,12 +147,12 @@ async function register(data) {
 
 async function refresh(refreshToken) {
   if (!refreshToken || isTokenBlacklisted(refreshToken)) {
-    throw new Error('Refresh token inválido o revocado')
+    throw new AppError('Refresh token inválido o revocado', 401)
   }
 
   const decoded = verifyRefreshToken(refreshToken)
   if (!decoded || decoded.type !== 'refresh') {
-    throw new Error('Refresh token inválido')
+    throw new AppError('Refresh token inválido', 401)
   }
 
   const user = await prisma.usuario.findUnique({
@@ -160,7 +161,7 @@ async function refresh(refreshToken) {
   })
 
   if (!user || !user.activo) {
-    throw new Error('Usuario no encontrado o desactivado')
+    throw new AppError('Usuario no encontrado o desactivado', 401)
   }
 
   blacklistToken(refreshToken)
@@ -191,7 +192,7 @@ async function getMe(userId) {
   })
 
   if (!user) {
-    throw new Error('Usuario no encontrado')
+    throw new AppError('Usuario no encontrado', 404)
   }
 
   const { passwordHash, ...userWithoutPassword } = user

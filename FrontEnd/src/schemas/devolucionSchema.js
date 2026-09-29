@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CheckCircle, ClipboardCheck, PackageCheck, RotateCcw, Truck, XCircle } from 'lucide-react'
 
 export const devolucionSchema = z.object({
   despachoPedidoId: z.string().uuid('Despacho-pedido requerido'),
@@ -23,19 +24,22 @@ export const devolucionEstadoSchema = z.object({
 })
 
 export const ESTADOS_DEVOLUCION = [
-  { value: 'SOLICITADA', label: 'Solicitada', color: 'info', icon: 'RotateCcw', order: 1 },
-  { value: 'EN_TRASLADO', label: 'En Traslado', color: 'warning', icon: 'Truck', order: 2 },
-  { value: 'RECIBIDA', label: 'Recibida', color: 'primary', icon: 'PackageCheck', order: 3 },
-  { value: 'EVALUADA', label: 'Evaluada', color: 'primary', icon: 'ClipboardCheck', order: 4 },
-  { value: 'CERRADA', label: 'Cerrada', color: 'success', icon: 'CheckCircle', order: 5 },
-  { value: 'CANCELADA', label: 'Cancelada', color: 'danger', icon: 'XCircle', order: 6 },
+  { value: 'SOLICITADA', label: 'Solicitada', color: 'info', icon: RotateCcw, order: 1 },
+  { value: 'EN_TRASLADO', label: 'En Traslado', color: 'warning', icon: Truck, order: 2 },
+  { value: 'RECIBIDA', label: 'Recibida', color: 'primary', icon: PackageCheck, order: 3 },
+  { value: 'EVALUADA', label: 'Evaluada', color: 'primary', icon: ClipboardCheck, order: 4 },
+  { value: 'CERRADA', label: 'Cerrada', color: 'success', icon: CheckCircle, order: 5 },
+  { value: 'CANCELADA', label: 'Cancelada', color: 'danger', icon: XCircle, order: 6 },
 ]
 
+// Transiciones que acepta el backend (devolucion.service.js → changeEstado). RECIBIDA y EVALUADA
+// se alcanzan con sus endpoints propios (recepción y evaluación); CERRADA, al decidir todos los
+// productos.
 export const TRANSICIONES_DEVOLUCION = {
   SOLICITADA: ['EN_TRASLADO', 'CANCELADA'],
-  EN_TRASLADO: ['RECIBIDA', 'SOLICITADA', 'CANCELADA'],
-  RECIBIDA: ['EVALUADA', 'EN_TRASLADO', 'CANCELADA'],
-  EVALUADA: ['CERRADA', 'RECIBIDA'],
+  EN_TRASLADO: ['RECIBIDA', 'CANCELADA'],
+  RECIBIDA: ['EVALUADA', 'CANCELADA'],
+  EVALUADA: ['CERRADA', 'CANCELADA'],
   CERRADA: [],
   CANCELADA: [],
 }
@@ -53,7 +57,7 @@ export const DECISIONES_DEVOLUCION = [
 ]
 
 export function getEstadoConfig(estado) {
-  return ESTADOS_DEVOLUCION.find(e => e.value === estado) || { color: 'default', label: estado, icon: 'RotateCcw' }
+  return ESTADOS_DEVOLUCION.find(e => e.value === estado) || { color: 'default', label: estado, icon: RotateCcw }
 }
 
 export function getSiguientesEstados(estadoActual) {

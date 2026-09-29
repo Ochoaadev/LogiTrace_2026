@@ -1,5 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
+const { mapearEvento } = require('./expediente.service')
 
 async function listTrazabilidad(query) {
   const { page, limit, skip } = getPagination(query)
@@ -7,10 +9,12 @@ async function listTrazabilidad(query) {
 
   const where = {}
 
+  // EventoTrazabilidad no tiene columnas despachoId/incidenciaId/devolucionId: la entidad
+  // afectada se guarda como (entidadTipo, entidadId). Filtrar por esas columnas hacía fallar la consulta.
   if (pedidoId) where.pedidoId = pedidoId
-  if (despachoId) where.despachoId = despachoId
-  if (incidenciaId) where.incidenciaId = incidenciaId
-  if (devolucionId) where.devolucionId = devolucionId
+  if (despachoId) Object.assign(where, { entidadTipo: 'Despacho', entidadId: despachoId })
+  if (incidenciaId) Object.assign(where, { entidadTipo: 'Incidencia', entidadId: incidenciaId })
+  if (devolucionId) Object.assign(where, { entidadTipo: 'Devolucion', entidadId: devolucionId })
   if (tipoEvento) where.tipoEvento = tipoEvento
   if (usuarioId) where.usuarioId = usuarioId
   if (fechaDesde || fechaHasta) {
@@ -60,9 +64,18 @@ async function getTrazabilidadByPedido(pedidoId, query) {
 async function getTrazabilidadByDespacho(despachoId, query) {
   const { page, limit, skip } = getPagination(query)
 
+  // Eventos del propio despacho más los de los pedidos que transporta
+  const pedidos = await prisma.despachoPedido.findMany({ where: { despachoId }, select: { pedidoId: true } })
+  const where = {
+    OR: [
+      { entidadTipo: 'Despacho', entidadId: despachoId },
+      { pedidoId: { in: pedidos.map((p) => p.pedidoId) } },
+    ],
+  }
+
   const [eventos, total] = await Promise.all([
     prisma.eventoTrazabilidad.findMany({
-      where: { despachoId },
+      where,
       skip,
       take: limit,
       orderBy: { fechaHora: 'asc' },
@@ -71,10 +84,11 @@ async function getTrazabilidadByDespacho(despachoId, query) {
         ubicacionGPS: { select: { id: true, latitud: true, longitud: true, fechaHora: true, velocidadKmh: true } },
       },
     }),
-    prisma.eventoTrazabilidad.count({ where: { despachoId } }),
+    prisma.eventoTrazabilidad.count({ where }),
   ])
 
-  return { data: eventos, total, page, limit }
+  // Mismo formato que la línea temporal del expediente
+  return { data: eventos.map(mapearEvento), total, page, limit }
 }
 
 async function getTrazabilidadCompleta(pedidoId) {
@@ -111,7 +125,7 @@ async function getTrazabilidadCompleta(pedidoId) {
     },
   })
 
-  if (!pedido) throw new Error('Pedido no encontrado')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
 
   // Obtener incidencias y devoluciones a través de los despachos
   const despachoIds = pedido.despachos.map(d => d.despachoId)

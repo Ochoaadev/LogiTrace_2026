@@ -32,6 +32,20 @@ export const ESTADOS_PEDIDO = [
   { value: 'CANCELADO', label: 'Cancelado', color: 'danger' },
 ]
 
+// Transiciones que acepta el backend (pedido.service.js → changeEstado). Mantener sincronizado:
+// ofrecer otra transición en la UI solo produce un error 400.
+export const TRANSICIONES_PEDIDO = {
+  REGISTRADO: ['EN_PREPARACION', 'CANCELADO'],
+  EN_PREPARACION: ['LISTO_PARA_DESPACHO', 'CANCELADO'],
+  LISTO_PARA_DESPACHO: ['EN_RUTA', 'CANCELADO'],
+  EN_RUTA: ['ENTREGADO', 'CON_INCIDENCIA'],
+  CON_INCIDENCIA: ['EN_RUTA', 'DEVUELTO'],
+  ENTREGADO: ['CERRADO', 'DEVUELTO'],
+  DEVUELTO: ['CERRADO'],
+  CERRADO: [],
+  CANCELADO: [],
+}
+
 export const PRIORIDADES = [
   { value: 'BAJA', label: 'Baja', color: 'default' },
   { value: 'NORMAL', label: 'Normal', color: 'info' },

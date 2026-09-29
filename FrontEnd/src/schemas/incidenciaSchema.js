@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AlertTriangle, Archive, CheckCircle, Search, Wrench, XCircle } from 'lucide-react'
 
 export const incidenciaSchema = z.object({
   pedidoId: z.string().uuid('Pedido inválido'),
@@ -16,12 +17,12 @@ export const incidenciaEstadoSchema = z.object({
 })
 
 export const ESTADOS_INCIDENCIA = [
-  { value: 'REPORTADA', label: 'Reportada', color: 'info', icon: 'AlertTriangle', order: 1 },
-  { value: 'EN_REVISION', label: 'En Revisión', color: 'warning', icon: 'Search', order: 2 },
-  { value: 'EN_ATENCION', label: 'En Atención', color: 'primary', icon: 'Wrench', order: 3 },
-  { value: 'RESUELTA', label: 'Resuelta', color: 'success', icon: 'CheckCircle', order: 4 },
-  { value: 'CERRADA', label: 'Cerrada', color: 'default', icon: 'Archive', order: 5 },
-  { value: 'CANCELADA', label: 'Cancelada', color: 'danger', icon: 'XCircle', order: 6 },
+  { value: 'REPORTADA', label: 'Reportada', color: 'info', icon: AlertTriangle, order: 1 },
+  { value: 'EN_REVISION', label: 'En Revisión', color: 'warning', icon: Search, order: 2 },
+  { value: 'EN_ATENCION', label: 'En Atención', color: 'primary', icon: Wrench, order: 3 },
+  { value: 'RESUELTA', label: 'Resuelta', color: 'success', icon: CheckCircle, order: 4 },
+  { value: 'CERRADA', label: 'Cerrada', color: 'default', icon: Archive, order: 5 },
+  { value: 'CANCELADA', label: 'Cancelada', color: 'danger', icon: XCircle, order: 6 },
 ]
 
 export const TRANSICIONES_INCIDENCIA = {
@@ -34,7 +35,7 @@ export const TRANSICIONES_INCIDENCIA = {
 }
 
 export function getEstadoConfig(estado) {
-  return ESTADOS_INCIDENCIA.find(e => e.value === estado) || { color: 'default', label: estado, icon: 'AlertTriangle' }
+  return ESTADOS_INCIDENCIA.find(e => e.value === estado) || { color: 'default', label: estado, icon: AlertTriangle }
 }
 
 export function getSiguientesEstados(estadoActual) {

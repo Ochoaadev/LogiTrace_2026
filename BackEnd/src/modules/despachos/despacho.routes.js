@@ -7,6 +7,7 @@ const {
   updateDespachoValidation,
   changeEstadoDespachoValidation,
   updateUbicacionValidation,
+  agregarPedidoValidation,
 } = require('./despacho.validation')
 const { validationMiddleware } = require('../../middlewares/validationMiddleware')
 const { authMiddleware } = require('../../middlewares/authMiddleware')
@@ -21,6 +22,12 @@ router.get(
   listDespachosValidation,
   validationMiddleware,
   despachoController.listDespachos
+)
+
+router.get(
+  '/resumen',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  despachoController.getResumenDespachos
 )
 
 router.get(
@@ -41,6 +48,14 @@ router.post(
   createDespachoValidation,
   validationMiddleware,
   despachoController.createDespacho
+)
+
+router.post(
+  '/:id/pedidos',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  agregarPedidoValidation,
+  validationMiddleware,
+  despachoController.agregarPedido
 )
 
 router.put(

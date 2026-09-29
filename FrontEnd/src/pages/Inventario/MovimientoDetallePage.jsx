@@ -1,282 +1,391 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogCancel } from '@/components/ui/Dialog'
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from '@/components/ui/AlertDialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
 import { DataTable, createTableColumns } from '@/components/ui/Table'
-import { Skeleton, SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton'
+import { SkeletonCard } from '@/components/ui/Skeleton'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { usePermissions } from '@/hooks/usePermissions'
-import { useInventario, useMovimientos, useAjustarStock, useCrearMovimiento, useGetLoteDetalle } from '@/services/query/useInventario'
-import { useLotes } from '@/services/query/useCatalogos'
+import { useMovimientos, useAjustarStock, useCrearMovimiento, useGetLoteDetalle } from '@/services/query/useInventario'
 import { useUbicaciones } from '@/services/query/useCatalogos'
 import { getTipoMovimientoConfig, getEstadoLoteConfig, TIPOS_MOVIMIENTO } from '@/schemas/inventarioSchema'
-import { cn } from '@/lib/utils'
-import {
-  Package, Warehouse, ArrowDown, ArrowUp, Minus, RotateCcw,
-  ArrowRightLeft, Trash2, MoreHorizontal, Calendar, Clock,
-  AlertTriangle, CheckCircle, XCircle, Plus, AlertCircle
-} from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
+import { Minus, Plus, AlertCircle, TriangleAlert, CircleCheck, ArrowLeft } from 'lucide-react'
+import { fechaSinHora, diasHasta } from '@/lib/fechas'
 
-const TIPO_OPTIONS = TIPOS_MOVIMIENTO.map(t => ({ value: t.value, label: t.label }))
+const DIAS_ALERTA_VENCIMIENTO = 7
 
-export default function MovimientoDetallePage() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { can } = usePermissions()
-  const { user } = useAuth()
+// Qué ubicaciones exige el backend para cada tipo de movimiento
+const REQUIERE = {
+  ENTRADA: { destino: true },
+  REINGRESO: { destino: true },
+  AJUSTE: { destino: true },
+  SALIDA: { origen: true },
+  DESCARTE: { origen: true },
+  TRASLADO: { origen: true, destino: true },
+}
 
-  const { data: lote, isLoading: loteLoading, error: loteError } = useGetLoteDetalle(id)
-  const { data: movimientosData, isLoading: movLoading } = useMovimientos({ loteId: id }, { page: 1, limit: 20 })
+// Efecto de un movimiento sobre el stock total del lote. TRASLADO no cambia el total (solo mueve
+// entre ubicaciones); AJUSTE guarda la diferencia con signo.
+function efectoEnTotal(m) {
+  const c = Number(m.cantidad)
+  if (['ENTRADA', 'REINGRESO', 'AJUSTE'].includes(m.tipo)) return c
+  if (['SALIDA', 'DESCARTE'].includes(m.tipo)) return -c
+  return 0
+}
 
-  const crearMovimiento = useCrearMovimiento()
-  const ajustarStock = useAjustarStock()
+const formatFecha = (fecha) =>
+  fecha ? new Date(fecha).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
-  const [showAjusteDialog, setShowAjusteDialog] = useState(false)
-  const [ajusteData, setAjusteData] = useState({
-    cantidad: '',
-    observaciones: '',
-  })
-  const [showMovimientoDialog, setShowMovimientoDialog] = useState(false)
-  const [movimientoData, setMovimientoData] = useState({
-    tipo: 'AJUSTE',
-    cantidad: 1,
-    ubicacionOrigenId: '',
-    ubicacionDestinoId: '',
-    observaciones: '',
-    referenciaTipo: '',
-    referenciaId: '',
-  })
+const num = (v) => Number(v ?? 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })
 
-  const loteData = lote?.data
-  const currentStock = loteData?.inventarios?.[0]?.stockActual || 0
-  const ubicacionActual = loteData?.inventarios?.[0]?.ubicacion
-
-  const movimientos = movimientosData?.data || []
-
-  if (loteLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Detalle de Lote</h1>
-            <p className="text-gray-600 mt-1">Cargando...</p>
-          </div>
-        </div>
-        <SkeletonCard />
-      </div>
-    )
-  }
-
-  if (loteError || !loteData) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900">Lote no encontrado</h2>
-        <Button className="mt-4" onClick={() => navigate('/inventario')}>Volver a inventario</Button>
-      </div>
-    )
-  }
-
-  const handleCrearMovimiento = async (e) => {
-    e.preventDefault()
-    try {
-      await crearMovimiento.mutateAsync({ ...movimientoData, loteId: id, ubicacionOrigenId: movimientoData.tipo === 'TRASLADO' ? movimientoData.ubicacionOrigenId : undefined, ubicacionDestinoId: movimientoData.tipo !== 'ENTRADA' ? movimientoData.ubicacionDestinoId : undefined })
-      setShowMovimientoDialog(false)
-      setMovimientoData({ tipo: 'AJUSTE', cantidad: 1, ubicacionOrigenId: '', ubicacionDestinoId: '', observaciones: '', referenciaTipo: '', referenciaId: '' })
-      queryClient.invalidateQueries({ queryKey: ['inventario', 'movimientos', id] })
-      queryClient.invalidateQueries({ queryKey: ['inventario', 'detalle', id] })
-    } catch (err) {
-      console.error('Error:', err)
-    }
-  }
-
-  const handleAjuste = async (e) => {
-    e.preventDefault()
-    if (!ajusteData.cantidad) return
-    try {
-      await ajustarStock.mutateAsync({ loteId: id, ubicacionId: ubicacionActual?.id, cantidadNueva: parseInt(ajusteData.cantidad), observaciones: ajusteData.observaciones })
-      setShowAjusteDialog(false)
-      setAjusteData({ cantidad: '', observaciones: '' })
-      queryClient.invalidateQueries({ queryKey: ['inventario', 'detalle', id] })
-    } catch (err) {
-      console.error('Error:', err)
-    }
-  }
-
-  const getTipoConfig = (tipo) => getTipoMovimientoConfig(tipo)
-
-  const formatFecha = (fecha) => fecha ? new Date(fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
-
-  if (!loteData) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900">Lote no encontrado</h2>
-        <Button className="mt-4" onClick={() => navigate('/inventario')}>Volver a inventario</Button>
-      </div>
-    )
-  }
-
+function TipoBadge({ tipo }) {
+  const config = getTipoMovimientoConfig(tipo)
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{loteData.codigo}</h1>
-            <Badge variant={getEstadoLoteConfig(loteData.estadoCalidad).color}>{getEstadoLoteConfig(loteData.estadoCalidad).label}</Badge>
-          </div>
-          <p className="text-gray-600 mt-1">Producto: {loteData.producto?.nombre || '—'} · {loteData.unidadBase}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => setShowAjusteDialog(true)}>
-            <Minus className="h-4 w-4 mr-1" /> Ajustar Stock
-          </Button>
-          <Button onClick={() => setShowMovimientoDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Nuevo Movimiento
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/inventario')}>
-            Volver
-          </Button>
-        </div>
-      </div>
+    <Badge variant={config.color}>
+      {config.icon && <config.icon className="h-3 w-3" aria-hidden="true" />} {config.label}
+    </Badge>
+  )
+}
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Stock Actual</p><p className="font-medium text-gray-900 text-2xl">{currentStock} {loteData.unidadBase}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Ubicación</p><p className="font-medium text-gray-900">{ubicacionActual?.nombre || 'Sin ubicación'}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Stock Mínimo</p><p className="font-medium text-gray-900">{loteData.inventarios?.[0]?.stockMinimo || 0}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-sm text-gray-500">Vencimiento</p><p className="font-medium text-gray-900">{loteData.fechaVencimiento ? new Date(loteData.fechaVencimiento).toLocaleDateString('es-ES') : 'Sin fecha'}</p></CardContent></Card>
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="movimientos" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="movimientos">Movimientos ({movimientos.length})</TabsTrigger>
-          <TabsTrigger value="kardex">Kardex</TabsTrigger>
-          <TabsTrigger value="alertas">Alertas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="movimientos">
-          <Card>
-            <CardContent className="p-0">
-              {movimientos.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    {
-                      accessorKey: 'tipo',
-                      header: 'Tipo',
-                      cell: (val) => {
-                        const config = getTipoConfig(val)
-                        return <Badge variant={config.color} className="gap-1"><config.icon className="h-3 w-3" /> {config.label}</Badge>
-                      },
-                    },
-                    {
-                      accessorKey: 'cantidad',
-                      header: 'Cantidad',
-                      cell: (val) => <span className="font-mono text-sm">{val}</span>,
-                    },
-                    {
-                      accessorKey: 'ubicacionOrigen',
-                      header: 'Origen',
-                      cell: (_, row) => row.original.ubicacionOrigen?.nombre || '—',
-                    },
-                    {
-                      accessorKey: 'ubicacionDestino',
-                      header: 'Destino',
-                      cell: (_, row) => row.original.ubicacionDestino?.nombre || '—',
-                    },
-                    {
-                      accessorKey: 'fechaHora',
-                      header: 'Fecha',
-                      cell: (val) => formatFecha(val),
-                    },
-                    {
-                      accessorKey: 'usuario',
-                      header: 'Usuario',
-                      cell: (_, row) => row.original.usuario?.nombre || '—',
-                    },
-                  ])}
-                  data={movimientos}
-                  keyField="id"
-                  showPagination={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500">Sin movimientos registrados</div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="kardex">
-          <Card>
-            <CardContent className="p-0">
-              {movimientos.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    { accessorKey: 'fechaHora', header: 'Fecha', cell: (val) => formatFecha(val) },
-                    { accessorKey: 'tipo', header: 'Tipo', cell: (val) => <Badge variant={getTipoConfig(val).color} className="gap-1"><config.icon className="h-3 w-3" /> {config.label}</Badge> },
-                    { accessorKey: 'cantidad', header: 'Entrada', cell: (val, row) => row.original.tipo === 'ENTRADA' || row.original.tipo === 'REINGRESO' || (row.original.tipo === 'TRASLADO' && row.original.ubicacionDestinoId) ? val : '—' },
-                    { accessorKey: 'cantidad', header: 'Salida', cell: (val, row) => row.original.tipo === 'SALIDA' || row.original.tipo === 'DESCARTE' || (row.original.tipo === 'TRASLADO' && row.original.ubicacionOrigenId) ? val : '—' },
-                    { accessorKey: 'saldo', header: 'Saldo', cell: (_, row) => <span className="font-mono font-medium">{row.original.saldo || '—'}</span> },
-                    { accessorKey: 'ubicacionOrigen', header: 'Origen', cell: (_, row) => row.original.ubicacionOrigen?.nombre || '—' },
-                    { accessorKey: 'ubicacionDestino', header: 'Destino', cell: (_, row) => row.original.ubicacionDestino?.nombre || '—' },
-                    { accessorKey: 'observaciones', header: 'Observaciones' },
-                  ])}
-                  data={movimientos.map((m, i) => ({ ...m, saldo: movimientos.slice(0, i + 1).reduce((acc, mv) => {
-                    if (['ENTRADA', 'REINGRESO'].includes(mv.tipo) || (mv.tipo === 'TRASLADO' && mv.ubicacionDestinoId)) return acc + mv.cantidad
-                    if (['SALIDA', 'DESCARTE'].includes(mv.tipo) || (mv.tipo === 'TRASLADO' && mv.ubicacionOrigenId)) return acc - mv.cantidad
-                    if (mv.tipo === 'AJUSTE') return mv.cantidad
-                    return acc
-                  }, 0) })).reverse()}
-                  keyField="id"
-                  showPagination={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500">Sin datos para kardex</div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="alertas">
-          <Card>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-warning">
-                <AlertTriangle className="h-5 w-5" />
-                <span className="font-medium">Alertas de Stock</span>
-              </div>
-              <div className="space-y-2">
-                {[
-                  { tipo: 'Stock bajo', condicion: 'stockActual <= stockMinimo', icon: AlertTriangle },
-                  { tipo: 'Próximo a vencer', condicion: 'fechaVencimiento <= 30 días', icon: AlertCircle },
-                  { tipo: 'Vencido', condicion: 'fechaVencimiento < hoy', icon: XCircle },
-                ].map(alerta => (
-                  <div key={alerta.tipo} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <alerta.icon className="h-5 w-5 text-warning" />
-                      <span className="font-medium">{alerta.tipo}</span>
-                    </div>
-                    <span className="text-sm text-gray-500">Verificar manualmente</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+function Dato({ etiqueta, children }) {
+  return (
+    <div className="bg-white p-4">
+      <p className="label-caps">{etiqueta}</p>
+      <p className="mt-2 text-xl font-semibold text-gray-900">{children}</p>
     </div>
   )
 }
 
-function formatFecha(fecha) {
-  return fecha ? new Date(fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+export default function MovimientoDetallePage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const { can } = usePermissions()
+
+  const { data: lote, isLoading, error } = useGetLoteDetalle(id)
+  const { data: movimientosData } = useMovimientos({ loteId: id }, { page: 1, limit: 50 })
+  const { data: ubicacionesData } = useUbicaciones({ activo: 'true' }, { page: 1, limit: 100 })
+
+  // ?accion=movimiento abre el diálogo al llegar desde "Nuevo movimiento" en la lista
+  const [dialogo, setDialogo] = useState(params.get('accion') === 'movimiento' ? 'movimiento' : null)
+  const cerrarDialogo = () => {
+    setDialogo(null)
+    if (params.get('accion')) setParams({}, { replace: true })
+  }
+
+  const loteData = lote?.data
+  const ubicaciones = ubicacionesData?.data || []
+  const movimientos = movimientosData?.data || []
+
+  if (isLoading) return <SkeletonCard />
+
+  if (error || !loteData) {
+    return (
+      <div className="bg-white text-center py-12">
+        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" aria-hidden="true" />
+        <h2 className="text-xl font-semibold text-gray-900">Lote no encontrado</h2>
+        <Button className="mt-4" onClick={() => navigate('/inventario')}>Volver a inventario</Button>
+      </div>
+    )
+  }
+
+  const inventarios = loteData.inventarios || []
+  const estado = getEstadoLoteConfig(loteData.estadoCalidad)
+  const unidad = loteData.unidadBase || ''
+
+  // Saldo del kardex: se reconstruye hacia atrás desde el stock total actual, porque la lista
+  // viene del más reciente al más antiguo y puede no incluir todo el historial.
+  const stockTotal = Number(loteData.stockTotal ?? 0)
+  const kardex = movimientos.map((m, i) => ({
+    ...m,
+    saldo: stockTotal - movimientos.slice(0, i).reduce((acc, posterior) => acc + efectoEnTotal(posterior), 0),
+  }))
+
+  // Alertas reales del lote
+  const vence = loteData.fechaVencimiento
+  const diasParaVencer = diasHasta(vence)
+  const alertas = [
+    ...inventarios
+      .filter((inv) => Number(inv.stockActual) <= Number(inv.stockMinimo) && Number(inv.stockMinimo) > 0)
+      .map((inv) => ({ tipo: 'critical', texto: `Stock bajo en ${inv.ubicacion?.nombre}: ${num(inv.stockActual)} ${unidad} (mínimo ${num(inv.stockMinimo)})` })),
+    ...(diasParaVencer !== null && diasParaVencer < 0 ? [{ tipo: 'critical', texto: `Lote vencido desde el ${fechaSinHora(vence)}` }] : []),
+    ...(diasParaVencer !== null && diasParaVencer >= 0 && diasParaVencer <= DIAS_ALERTA_VENCIMIENTO
+      ? [{ tipo: 'warning', texto: `Vence en ${diasParaVencer} día(s) (${fechaSinHora(vence)})` }]
+      : []),
+    ...(loteData.estadoCalidad !== 'DISPONIBLE' ? [{ tipo: 'warning', texto: `Estado de calidad: ${estado.label}` }] : []),
+  ]
+
+  return (
+    <div>
+      <PageHeader
+        modulo="06"
+        seccion="Inventario · detalle de lote"
+        title={`Lote ${loteData.codigo}`}
+        description={`${loteData.producto?.nombre || 'Producto'} · unidad base: ${unidad}`}
+        tags={<Badge variant={estado.color}>{estado.label}</Badge>}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => navigate('/inventario')}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
+            </Button>
+            {can('inventario.adjust') && (
+              <Button variant="secondary" onClick={() => setDialogo('ajuste')}>
+                <Minus className="h-4 w-4" aria-hidden="true" /> Ajustar stock
+              </Button>
+            )}
+            {can('inventario.movimientos') && (
+              <Button onClick={() => setDialogo('movimiento')}>
+                <Plus className="h-4 w-4" aria-hidden="true" /> Nuevo movimiento
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Dato etiqueta="Stock total">{num(loteData.stockTotal)} <span className="text-sm font-normal text-gray-600">{unidad}</span></Dato>
+        <Dato etiqueta="Ubicaciones con stock">{inventarios.filter((i) => Number(i.stockActual) > 0).length}</Dato>
+        <Dato etiqueta="Producción">{fechaSinHora(loteData.fechaProduccion)}</Dato>
+        <Dato etiqueta="Vencimiento">{vence ? fechaSinHora(vence) : 'Sin fecha'}</Dato>
+      </div>
+
+      <Tabs defaultValue="stock" className="bg-white px-4 pb-4">
+        <TabsList>
+          <TabsTrigger value="stock">Stock por ubicación ({inventarios.length})</TabsTrigger>
+          <TabsTrigger value="kardex">Kardex ({movimientos.length})</TabsTrigger>
+          <TabsTrigger value="alertas">Alertas ({alertas.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="stock">
+          {inventarios.length ? (
+            <DataTable
+              showPagination={false}
+              data={inventarios}
+              columns={createTableColumns([
+                { accessorKey: 'ubicacion', header: 'Ubicación', cell: (_, row) => `${row.original.ubicacion?.codigo} · ${row.original.ubicacion?.nombre}` },
+                { accessorKey: 'stockActual', header: 'Stock actual', cell: (v) => <span className="font-mono">{num(v)} {unidad}</span> },
+                { accessorKey: 'stockMinimo', header: 'Stock mínimo', cell: (v) => <span className="font-mono">{num(v)}</span> },
+                {
+                  accessorKey: 'id',
+                  header: 'Estado',
+                  cell: (_, row) =>
+                    Number(row.original.stockActual) <= Number(row.original.stockMinimo) && Number(row.original.stockMinimo) > 0
+                      ? <Badge variant="danger">Bajo mínimo</Badge>
+                      : <Badge variant="success">Normal</Badge>,
+                },
+              ])}
+            />
+          ) : (
+            <p className="p-8 text-center text-gray-600">Este lote no tiene stock registrado en ninguna ubicación.</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="kardex">
+          {kardex.length ? (
+            <DataTable
+              showPagination={false}
+              data={kardex}
+              columns={createTableColumns([
+                { accessorKey: 'fechaHora', header: 'Fecha', cell: (v) => <span className="font-mono text-xs">{formatFecha(v)}</span> },
+                { accessorKey: 'tipo', header: 'Tipo', cell: (v) => <TipoBadge tipo={v} /> },
+                {
+                  accessorKey: 'cantidad',
+                  header: 'Cantidad',
+                  cell: (_, row) => {
+                    const e = efectoEnTotal(row.original)
+                    return <span className="font-mono">{row.original.tipo === 'TRASLADO' ? num(row.original.cantidad) : `${e > 0 ? '+' : ''}${num(e)}`}</span>
+                  },
+                },
+                { accessorKey: 'saldo', header: 'Saldo', cell: (v) => <span className="font-mono font-semibold">{num(v)}</span> },
+                { accessorKey: 'ubicacionOrigen', header: 'Origen', cell: (_, row) => row.original.ubicacionOrigen?.nombre || '—' },
+                { accessorKey: 'ubicacionDestino', header: 'Destino', cell: (_, row) => row.original.ubicacionDestino?.nombre || '—' },
+                { accessorKey: 'usuario', header: 'Usuario', cell: (_, row) => row.original.usuario?.nombre || '—' },
+                { accessorKey: 'observaciones', header: 'Observaciones', cell: (v) => v || '—' },
+              ])}
+            />
+          ) : (
+            <p className="p-8 text-center text-gray-600">Sin movimientos registrados.</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="alertas">
+          {alertas.length === 0 ? (
+            <p className="flex items-center gap-2 p-4 text-sm text-gray-700">
+              <CircleCheck className="h-5 w-5 text-success" aria-hidden="true" /> Sin alertas: stock sobre el mínimo, lote vigente y disponible.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {alertas.map((a) => (
+                <li key={a.texto} className={a.tipo === 'critical' ? 'flex items-center gap-2 p-3 bg-danger-light text-[#a2191f] text-sm' : 'flex items-center gap-2 p-3 bg-warning-light text-[#684e00] text-sm'}>
+                  <TriangleAlert className="h-4 w-4 flex-shrink-0" aria-hidden="true" /> {a.texto}
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {dialogo === 'ajuste' && (
+        <AjusteDialog lote={loteData} ubicaciones={ubicaciones} onClose={cerrarDialogo} />
+      )}
+      {dialogo === 'movimiento' && (
+        <MovimientoDialog lote={loteData} ubicaciones={ubicaciones} onClose={cerrarDialogo} />
+      )}
+    </div>
+  )
+}
+
+const mensajeError = (err, porDefecto) => err?.errors?.[0]?.mensaje || err?.message || porDefecto
+
+function UbicacionSelect({ id, value, onChange, ubicaciones, placeholder = 'Seleccione ubicación' }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger id={id}><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        {ubicaciones.map((u) => <SelectItem key={u.id} value={u.id}>{u.codigo} · {u.nombre}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// Fija el stock de una ubicación a un valor contado (conteo físico)
+function AjusteDialog({ lote, ubicaciones, onClose }) {
+  const ajustar = useAjustarStock()
+  const inicial = lote.inventarios?.[0]
+  const [ubicacionId, setUbicacionId] = useState(inicial?.ubicacion?.id || '')
+  const [cantidad, setCantidad] = useState('')
+  const [observaciones, setObservaciones] = useState('')
+  const [error, setError] = useState(null)
+
+  const actual = lote.inventarios?.find((i) => i.ubicacion?.id === ubicacionId)
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await ajustar.mutateAsync({ loteId: lote.id, ubicacionId, cantidadNueva: Number(cantidad), observaciones: observaciones || undefined })
+      onClose()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo ajustar el stock'))
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Ajustar stock del lote {lote.codigo}</DialogTitle>
+            <DialogDescription>Registra el conteo físico; la diferencia queda en el kardex como AJUSTE.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="ajuste-ubicacion">Ubicación</Label>
+            <UbicacionSelect id="ajuste-ubicacion" value={ubicacionId} onChange={setUbicacionId} ubicaciones={ubicaciones} />
+            <p className="text-xs text-gray-600">Stock registrado: {num(actual?.stockActual)} {lote.unidadBase}</p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="ajuste-cantidad">Cantidad contada</Label>
+            <Input id="ajuste-cantidad" type="number" min="0" step="0.01" value={cantidad} onChange={(e) => setCantidad(e.target.value)} required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="ajuste-obs">Motivo / observaciones</Label>
+            <Textarea id="ajuste-obs" rows={2} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+          </div>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <DialogCancel type="button">Cancelar</DialogCancel>
+            <Button type="submit" disabled={!ubicacionId || cantidad === '' || ajustar.isPending} loading={ajustar.isPending}>Ajustar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function MovimientoDialog({ lote, ubicaciones, onClose }) {
+  const crear = useCrearMovimiento()
+  const [form, setForm] = useState({ tipo: 'ENTRADA', cantidad: '', ubicacionOrigenId: '', ubicacionDestinoId: '', observaciones: '' })
+  const [error, setError] = useState(null)
+  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
+  const req = REQUIERE[form.tipo] || {}
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      // Solo se envían las ubicaciones que corresponden al tipo (antes iban invertidas:
+      // ENTRADA sin destino y SALIDA sin origen, y el backend las rechazaba)
+      await crear.mutateAsync({
+        tipo: form.tipo,
+        loteId: lote.id,
+        cantidad: String(form.cantidad),
+        unidad: lote.unidadBase || 'unidad',
+        ...(req.origen && { ubicacionOrigenId: form.ubicacionOrigenId }),
+        ...(req.destino && { ubicacionDestinoId: form.ubicacionDestinoId }),
+        ...(form.observaciones && { observaciones: form.observaciones }),
+      })
+      onClose()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo registrar el movimiento'))
+    }
+  }
+
+  const valido =
+    Number(form.cantidad) > 0 &&
+    (!req.origen || form.ubicacionOrigenId) &&
+    (!req.destino || form.ubicacionDestinoId)
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Nuevo movimiento · lote {lote.codigo}</DialogTitle>
+            <DialogDescription>{lote.producto?.nombre} · stock total {num(lote.stockTotal)} {lote.unidadBase}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="mov-tipo">Tipo de movimiento</Label>
+            <Select value={form.tipo} onValueChange={set('tipo')}>
+              <SelectTrigger id="mov-tipo"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {/* AJUSTE se hace con "Ajustar stock" (conteo físico) */}
+                {TIPOS_MOVIMIENTO.filter((t) => t.value !== 'AJUSTE').map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mov-cantidad">Cantidad ({lote.unidadBase})</Label>
+            <Input id="mov-cantidad" type="number" min="0.01" step="0.01" value={form.cantidad} onChange={(e) => set('cantidad')(e.target.value)} required />
+          </div>
+          {req.origen && (
+            <div className="grid gap-2">
+              <Label htmlFor="mov-origen">Ubicación de origen</Label>
+              <UbicacionSelect id="mov-origen" value={form.ubicacionOrigenId} onChange={set('ubicacionOrigenId')} ubicaciones={ubicaciones} />
+            </div>
+          )}
+          {req.destino && (
+            <div className="grid gap-2">
+              <Label htmlFor="mov-destino">Ubicación de destino</Label>
+              <UbicacionSelect id="mov-destino" value={form.ubicacionDestinoId} onChange={set('ubicacionDestinoId')} ubicaciones={ubicaciones} />
+            </div>
+          )}
+          <div className="grid gap-2">
+            <Label htmlFor="mov-obs">Observaciones</Label>
+            <Textarea id="mov-obs" rows={2} value={form.observaciones} onChange={(e) => set('observaciones')(e.target.value)} />
+          </div>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <DialogCancel type="button">Cancelar</DialogCancel>
+            <Button type="submit" disabled={!valido || crear.isPending} loading={crear.isPending}>Registrar</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
 }

@@ -23,6 +23,20 @@ router.get(
 )
 
 router.get(
+  '/resumen',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  incidenciaController.getResumenIncidencias
+)
+
+router.get(
+  '/export/csv',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  listIncidenciasValidation,
+  validationMiddleware,
+  incidenciaController.exportCsv
+)
+
+router.get(
   '/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
   incidenciaController.getIncidenciaById

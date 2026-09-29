@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listProductos(query) {
   const { page, limit, skip } = getPagination(query)
@@ -42,30 +43,30 @@ async function getProductoById(id) {
       },
     },
   })
-  if (!producto) throw new Error('Producto no encontrado')
+  if (!producto) throw new AppError('Producto no encontrado', 404)
   return producto
 }
 
 async function createProducto(data) {
   const existing = await prisma.producto.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   return prisma.producto.create({ data })
 }
 
 async function updateProducto(id, data) {
   const producto = await prisma.producto.findUnique({ where: { id } })
-  if (!producto) throw new Error('Producto no encontrado')
+  if (!producto) throw new AppError('Producto no encontrado', 404)
 
   return prisma.producto.update({ where: { id }, data })
 }
 
 async function deleteProducto(id) {
   const producto = await prisma.producto.findUnique({ where: { id } })
-  if (!producto) throw new Error('Producto no encontrado')
+  if (!producto) throw new AppError('Producto no encontrado', 404)
 
   const hasLotes = await prisma.lote.count({ where: { productoId: id } })
-  if (hasLotes > 0) throw new Error('No se puede eliminar: tiene lotes asociados')
+  if (hasLotes > 0) throw new AppError('No se puede eliminar: tiene lotes asociados', 400)
 
   return prisma.producto.delete({ where: { id } })
 }

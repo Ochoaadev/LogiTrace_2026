@@ -80,7 +80,17 @@ async function deletePedido(req, res, next) {
   }
 }
 
+async function getResumenPedidos(req, res, next) {
+  try {
+    const resumen = await pedidoService.getResumenPedidos()
+    return success(res, resumen, 'Resumen de pedidos obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
+  getResumenPedidos,
   listPedidos,
   getPedidoById,
   createPedido,

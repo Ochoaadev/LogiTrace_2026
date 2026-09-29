@@ -9,7 +9,8 @@ import {
   getPaginationRowModel,
 } from '@tanstack/react-table/legacy'
 import { flexRender } from '@tanstack/react-table/flex-render'
-import { ChevronUp, ChevronDown, ChevronsUpDown, Check, Minus } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 
 // Re-export for convenience
 export {
@@ -25,11 +26,23 @@ export {
 const columnHelper = createColumnHelper()
 
 export function createTableColumns(columns) {
-  return columns.map((col) => {
+  // Varias columnas pueden leer el mismo campo (p. ej. dos columnas sobre "lote"); TanStack usa el
+  // accessorKey como id y React recibía claves repetidas. Se desambigua con un sufijo.
+  const usados = new Set()
+  const idUnico = (base, i) => {
+    const id = usados.has(base) ? `${base}_${i}` : base
+    usados.add(id)
+    return id
+  }
+
+  return columns.map((col, i) => {
     if (col.accessorKey) {
       return columnHelper.accessor(col.accessorKey, {
+        id: idUnico(col.id || col.accessorKey, i),
         header: col.header,
-        cell: col.cell ? (info) => col.cell(info.getValue(), info.row.original) : (info) => info.getValue(),
+        // Se pasa la fila de TanStack (no row.original): todas las páginas leen row.original.
+        // Antes llegaba el objeto de datos y row.original era undefined, lo que rompía las listas.
+        cell: col.cell ? (info) => col.cell(info.getValue(), info.row) : (info) => info.getValue(),
         enableSorting: col.sortable !== false,
         enableFiltering: col.filterable !== false,
         size: col.width,
@@ -63,15 +76,48 @@ export function DataTable({
   selection,
   emptyMessage = 'No hay datos disponibles',
   loading = false,
+  actionButtons,
 }) {
   const [sorting, setSorting] = React.useState([])
   const [globalFilter, setGlobalFilter] = React.useState('')
   const [paginationState, setPaginationState] = React.useState({ pageIndex: 0, pageSize })
   const [rowSelection, setRowSelection] = React.useState({})
 
+  // Las páginas de catálogos usan el formato simple { key, header, render(valor, fila) } y
+  // actionButtons(fila); TanStack no los entiende (celdas vacías, sin botones), así que se convierten.
+  const tableColumns = React.useMemo(() => {
+    const esFormatoSimple = (col) => col.key && !col.accessorKey && !col.accessorFn && !col.id
+    // Solo se convierten las columnas en formato simple; las que ya vienen de createTableColumns
+    // se dejan tal cual (convertirlas de nuevo envolvería su cell dos veces).
+    const convertidas = columns.map((col) =>
+      esFormatoSimple(col)
+        ? createTableColumns([{
+            accessorKey: col.key,
+            header: col.header,
+            ...(col.render && { cell: (valor, row) => col.render(valor, row.original) }),
+          }])[0]
+        : col
+    )
+    if (!actionButtons) return convertidas
+    return [
+      ...convertidas,
+      columnHelper.display({
+        id: '__acciones',
+        header: '',
+        cell: (info) => (
+          // No propagar el clic a onRowClick de la fila
+          <div onClick={(e) => e.stopPropagation()}>{actionButtons(info.row.original)}</div>
+        ),
+      }),
+    ]
+  }, [columns, actionButtons])
+
   const table = useReactTable({
     data,
-    columns,
+    columns: tableColumns,
+    // Listas paginadas en el servidor pasan sortable={false}: ordenar en el cliente solo
+    // reordenaría la página visible
+    enableSorting: sortable,
     state: { sorting, globalFilter, pagination: paginationState, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
@@ -104,22 +150,23 @@ export function DataTable({
 
   if (loading) {
     return (
-      <div className={cn('overflow-x-auto rounded-lg border border-gray-200', className)}>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className={cn('overflow-x-auto bg-white', className)}>
+        <table className="min-w-full">
+          <thead className="bg-gray-100">
             <tr>
-              {columns.map((col) => (
-                <th key={col.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {/* Esqueleto: las columnas pueden no tener id todavía, se usa la posición */}
+              {tableColumns.map((_, c) => (
+                <th key={c} className="px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-[0.08em]">
                   <div className="h-4 bg-gray-200 animate-pulse rounded" style={{ width: '100px' }} />
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white">
             {[...Array(5)].map((_, i) => (
               <tr key={i}>
-                {columns.map((col) => (
-                  <td key={col.id} className="px-4 py-3">
+                {tableColumns.map((_, c) => (
+                  <td key={c} className="px-4 py-3">
                     <div className="h-4 bg-gray-200 animate-pulse rounded w-3/4" />
                   </td>
                 ))}
@@ -132,23 +179,23 @@ export function DataTable({
   }
 
   return (
-    <div className={cn('rounded-lg border border-gray-200', className)}>
+    <div className={cn('bg-white', className)}>
       {filterable && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className="p-4 bg-white">
           <div className="relative max-w-md">
             <input
               type="search"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               placeholder="Buscar en toda la tabla..."
-              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary-light focus:outline-none"
+              className="w-full h-10 border-0 border-b border-gray-400 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-2 focus:outline-offset-[-2px] focus:outline-primary"
             />
           </div>
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full">
+          <thead className="bg-gray-100">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {selection?.enabled && (
@@ -167,11 +214,12 @@ export function DataTable({
                   <th
                     key={header.id}
                     className={cn(
-                      'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
-                      header.column.getCanSort() && 'cursor-pointer select-none hover:bg-gray-100',
+                      'px-4 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-[0.08em]',
+                      header.column.getCanSort() && 'cursor-pointer select-none hover:bg-gray-200',
                       header.column.getSize()
                     )}
                     style={{ width: header.column.getSize() }}
+                    onClick={header.column.getToggleSortingHandler()}
                   >
                     <div className="flex items-center gap-2">
                       {flexRender(header.column.columnDef.header, header.getContext())}
@@ -192,7 +240,7 @@ export function DataTable({
               </tr>
             ))}
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white">
             {table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + (selection?.enabled ? 1 : 0) + (showRowNumbers ? 1 : 0)} className="px-4 py-8 text-center text-gray-500">
@@ -204,8 +252,10 @@ export function DataTable({
                 <tr
                   key={row.id}
                   className={cn(
-                    onRowClick && 'hover:bg-gray-50 cursor-pointer',
-                    selection?.enabled && 'hover:bg-gray-50'
+                    // Carbon: filas cebra
+                    'border-b border-gray-100 even:bg-gray-50',
+                    (onRowClick || selection?.enabled) && 'hover:bg-gray-100',
+                    onRowClick && 'cursor-pointer'
                   )}
                   onClick={() => onRowClick?.(row.original)}
                 >
@@ -241,7 +291,7 @@ export function DataTable({
         </table>
       </div>
       {showPagination && pagination && (
-        <div className="border-t border-gray-200 px-4 py-3 sm:px-6">
+        <div className="px-4 py-3 bg-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span>
@@ -252,7 +302,7 @@ export function DataTable({
               <select
                 value={table.getState().pagination.pageSize}
                 onChange={(e) => table.setPageSize(Number(e.target.value))}
-                className="ml-2 h-8 rounded-md border border-gray-300 bg-white px-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary-light"
+                className="ml-2 h-8 border-0 border-b border-gray-400 bg-gray-50 px-2 text-sm focus:outline-2 focus:outline-primary"
                 aria-label="Registros por página"
               >
                 {[10, 25, 50, 100].map((size) => (
@@ -270,7 +320,7 @@ export function DataTable({
                 disabled={!table.getCanPreviousPage()}
                 aria-label="Página anterior"
               >
-                <ChevronUp className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
@@ -279,7 +329,7 @@ export function DataTable({
                 disabled={!table.getCanNextPage()}
                 aria-label="Página siguiente"
               >
-                <ChevronDown className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>

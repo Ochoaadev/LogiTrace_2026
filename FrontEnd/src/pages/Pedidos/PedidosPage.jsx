@@ -1,393 +1,397 @@
-import { useState, useMemo } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/Sheet'
+import {
+  Plus, Snowflake, ReceiptText, FilePlus2, History, ClipboardClock, Archive, Truck, CircleCheck,
+  Search, RotateCcw, Eye, Route, MapPin, Bike, Building2, ShieldCheck, TrendingUp, TrendingDown,
+} from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Pestana, Pestanas, Panel } from '@/components/layout/ModuloUI'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
-import { DataTable, createTableColumns, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel } from '@/components/ui/Table'
 import { Badge } from '@/components/ui/Badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Separator } from '@/components/ui/Separator'
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from '@/components/ui/AlertDialog'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/DropdownMenu'
-import { Skeleton, SkeletonTable } from '@/components/ui/Skeleton'
+import { KpiCard } from '@/components/ui/KpiCard'
+import { PaginacionServidor } from '@/components/ui/PaginacionServidor'
+import { DataTable, createTableColumns } from '@/components/ui/Table'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { usePermissions } from '@/hooks/usePermissions'
-import { usePedidos, useUpdateEstadoPedido, useCancelPedido, useAsignarDespacho } from '@/services/query/usePedidos'
-import { useDespachos } from '@/services/query/useDespachos'
-import { useClientes } from '@/services/query/useCatalogos'
+import { usePedidos, usePedidosResumen } from '@/services/query/usePedidos'
 import { useZonas } from '@/services/query/useCatalogos'
-import {
-  Plus, Search, Filter, X, ChevronDown,
-  Package, Truck, AlertTriangle, RotateCcw,
-  MoreHorizontal, Calendar, MapPin, Flag
-} from 'lucide-react'
+import { ESTADOS_PEDIDO, getEstadoConfig, getPrioridadConfig } from '@/schemas/pedidoSchema'
 import { cn } from '@/lib/utils'
-import { getEstadoConfig, getPrioridadConfig, ESTADOS_PEDIDO, PRIORIDADES } from '@/schemas/pedidoSchema'
+import { fechaSinHora } from '@/lib/fechas'
 
-const ESTADO_OPTIONS = ESTADOS_PEDIDO.map(e => ({ value: e.value, label: e.label }))
-const PRIORIDAD_OPTIONS = PRIORIDADES.map(p => ({ value: p.value, label: p.label }))
+const TODOS = '__todos'
+const ESTADOS_POR_VISTA = {
+  activos: ['REGISTRADO', 'EN_PREPARACION', 'LISTO_PARA_DESPACHO', 'EN_RUTA', 'CON_INCIDENCIA'],
+  historial: ['ENTREGADO', 'CERRADO', 'CANCELADO', 'DEVUELTO'],
+}
+const TIPO_VEHICULO = { MOTO: 'moto', VEHICULO_LIVIANO: 'vehículo liviano', FURGON: 'furgón', OTRO: 'otro', SIN_VEHICULO: 'sin vehículo' }
+
+const fecha = (d) => new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const hora = (d) => new Date(d).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
+const num = (v) => Number(v ?? 0).toLocaleString('es-VE', { maximumFractionDigits: 1 })
+
+function IndicadorCava({ cava }) {
+  if (!cava) {
+    return (
+      <div className="flex items-center gap-3 bg-gray-50 px-4 py-2.5">
+        <Snowflake className="h-5 w-5 text-gray-500" aria-hidden="true" />
+        <p className="text-xs text-gray-600">Sin registros de temperatura de cava</p>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-3 bg-gray-50 px-4 py-2.5" title={`Registrado ${fecha(cava.fechaHora)} ${hora(cava.fechaHora)}`}>
+      <Snowflake className={cn('h-5 w-5', cava.conforme ? 'text-success' : 'text-danger')} aria-hidden="true" />
+      <div>
+        <p className="label-caps text-[10px]">{cava.ubicacion}</p>
+        <p className="font-mono text-sm font-semibold text-gray-900">
+          {cava.temperaturaC.toFixed(1)} °C · <span className={cava.conforme ? 'text-success' : 'text-danger'}>{cava.conforme ? 'Óptimo' : 'Fuera de rango'}</span>
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export default function PedidosPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { can } = usePermissions()
 
-  const [filters, setFilters] = useState({
-    search: '',
-    estado: [],
-    prioridad: [],
-    clienteId: '',
-    zonaId: '',
-    fechaDesde: '',
-    fechaHasta: '',
-  })
-  const [pagination, setPagination] = useState({ page: 1, limit: 10 })
-  const [selection, setSelection] = useState([])
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [vista, setVista] = useState('activos')
+  const [filtros, setFiltros] = useState({ search: '', estado: TODOS, zonaId: TODOS })
+  const [page, setPage] = useState(1)
+  const busqueda = useDeferredValue(filtros.search)
 
-  const { data: pedidosData, isLoading, error, refetch } = usePedidos(filters, pagination)
-  const { data: clientes } = useClientes({ page: 1, limit: 100 })
-  const { data: zonas } = useZonas({ page: 1, limit: 100 })
-  const { data: despachos } = useDespachos({ page: 1, limit: 100 })
+  const cambiarFiltro = (k) => (v) => { setFiltros((f) => ({ ...f, [k]: v })); setPage(1) }
+  const cambiarVista = (v) => { setVista(v); setFiltros((f) => ({ ...f, estado: TODOS })); setPage(1) }
+  const limpiar = () => { setFiltros({ search: '', estado: TODOS, zonaId: TODOS }); setPage(1) }
+  const hayFiltros = filtros.search || filtros.estado !== TODOS || filtros.zonaId !== TODOS
 
-  const updateEstado = useUpdateEstadoPedido()
-  const cancelPedido = useCancelPedido()
-  const asignarDespacho = useAsignarDespacho()
+  const { data, isLoading, isError } = usePedidos(
+    {
+      vista,
+      search: busqueda.trim(),
+      ...(filtros.estado !== TODOS && { estado: filtros.estado }),
+      ...(filtros.zonaId !== TODOS && { zonaId: filtros.zonaId }),
+    },
+    { page, limit: 10 }
+  )
+  const { data: resumen, isLoading: cargandoResumen } = usePedidosResumen()
+  const { data: zonasData } = useZonas({ activo: 'true' }, { page: 1, limit: 100 })
 
-  const pedidos = pedidosData?.data || []
-  const totalPages = pedidosData?.totalPages || 1
-  const totalItems = pedidosData?.total || 0
+  const pedidos = data?.data || []
+  const zonas = zonasData?.data || []
 
-  const columns = useMemo(() => createTableColumns([
+  const columnas = createTableColumns([
     {
       accessorKey: 'codigo',
-      header: 'Código',
-      cell: (val, row) => (
-        <span className="font-mono text-sm font-medium">{val}</span>
+      header: 'ID pedido',
+      cell: (v, row) => (
+        <button type="button" onClick={() => navigate(`/pedidos/${row.original.id}`)} className="font-mono text-sm font-semibold text-primary hover:underline text-left">
+          #{v}
+        </button>
       ),
     },
     {
       accessorKey: 'cliente',
-      header: 'Cliente',
-      cell: (_, row) => row.original.cliente?.razonSocial || row.original.cliente?.nombre || '—',
+      header: 'Cliente / destino',
+      cell: (_, row) => (
+        <div className="min-w-[12rem]">
+          <p className="font-semibold text-gray-900">{row.original.cliente?.razonSocial}</p>
+          <p className="flex items-start gap-1 text-xs text-gray-600">
+            <MapPin className="h-3.5 w-3.5 mt-px flex-shrink-0" aria-hidden="true" />
+            {[row.original.zona?.nombre, row.original.direccionEntrega].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'fechaHora',
+      header: 'Fecha & hora',
+      cell: (v) => <span className="font-mono text-xs whitespace-nowrap">{fecha(v)}<br />{hora(v)}</span>,
+    },
+    {
+      accessorKey: 'detalles',
+      header: 'Total / cantidad',
+      cell: (detalles) => {
+        const total = detalles.reduce((s, d) => s + Number(d.cantidad), 0)
+        const unidad = [...new Set(detalles.map((d) => d.unidad))].join('/')
+        return (
+          <div className="min-w-[9rem]">
+            <p className="font-semibold text-gray-900">{num(total)} {unidad}</p>
+            <p className="font-mono text-xs text-gray-600 line-clamp-2">{detalles.map((d) => d.producto?.nombre).join(' · ')}</p>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'despachos',
+      header: 'Repartidor & móvil',
+      cell: (despachos) => {
+        const d = despachos?.at(-1)?.despacho
+        if (!d) return <span className="text-sm italic text-gray-500">Por asignar</span>
+        return (
+          <div>
+            <p className="text-gray-900">{d.repartidor?.usuario?.nombre || 'Sin repartidor'}</p>
+            <p className="flex items-center gap-1 text-xs text-gray-600">
+              <Bike className="h-3.5 w-3.5" aria-hidden="true" />
+              {d.vehiculo ? `${d.vehiculo.codigo} · ${TIPO_VEHICULO[d.vehiculo.tipo] || d.vehiculo.tipo}` : d.codigo}
+            </p>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'estado',
       header: 'Estado',
-      cell: (val) => {
-        const config = getEstadoConfig(val)
+      cell: (v, row) => {
+        const e = getEstadoConfig(v)
+        const prioridad = getPrioridadConfig(row.original.prioridad)
         return (
-          <Badge variant={config.color}>{config.label}</Badge>
-        )
-      },
-    },
-    {
-      accessorKey: 'prioridad',
-      header: 'Prioridad',
-      cell: (val) => {
-        const config = getPrioridadConfig(val)
-        return (
-          <Badge variant={config.color}>{config.label}</Badge>
-        )
-      },
-    },
-    {
-      accessorKey: 'fechaCreacion',
-      header: 'Creado',
-      cell: (val) => val ? new Date(val).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—',
-    },
-    {
-      accessorKey: 'fechaEntregaSolicitada',
-      header: 'Entrega Solic.',
-      cell: (val) => val ? new Date(val).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—',
-    },
-  ]), [])
-
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-    setPagination(prev => ({ ...prev, page: 1 }))
-  }
-
-  const clearFilters = () => {
-    setFilters({
-      search: '', estado: [], prioridad: [], clienteId: '', zonaId: '', fechaDesde: '', fechaHasta: ''
-    })
-    setPagination(prev => ({ ...prev, page: 1 }))
-  }
-
-  const hasActiveFilters = useMemo(() =>
-    filters.search || filters.estado.length > 0 || filters.prioridad.length > 0 ||
-    filters.clienteId || filters.zonaId || filters.fechaDesde || filters.fechaHasta, [filters])
-
-  const handleRowClick = (row) => {
-    navigate(`/pedidos/${row.id}`)
-  }
-
-  const handleEstadoChange = async (pedido, nuevoEstado) => {
-    try {
-      await updateEstado.mutateAsync({ id: pedido.id, estado: nuevoEstado })
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
-    } catch (err) {
-      console.error('Error actualizando estado:', err)
-    }
-  }
-
-  const handleCancelar = async (pedido) => {
-    const motivo = prompt('Motivo de cancelación:')
-    if (!motivo) return
-    try {
-      await cancelPedido.mutateAsync({ id: pedido.id, motivo })
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
-    } catch (err) {
-      console.error('Error cancelando:', err)
-    }
-  }
-
-  const handleAsignarDespacho = async (pedido) => {
-    const despachoId = prompt('ID del despacho:')
-    if (!despachoId) return
-    try {
-      await asignarDespacho.mutateAsync({ id: pedido.id, despachoId })
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
-    } catch (err) {
-      console.error('Error asignando:', err)
-    }
-  }
-
-  const bulkActions = [
-    {
-      label: 'Cambiar a En Preparación',
-      action: () => selection.forEach(p => handleEstadoChange(p, 'EN_PREPARACION')),
-      disabled: !can('pedidos.edit'),
-    },
-    {
-      label: 'Cambiar a Listo para Despacho',
-      action: () => selection.forEach(p => handleEstadoChange(p, 'LISTO_PARA_DESPACHO')),
-      disabled: !can('pedidos.edit'),
-    },
-    {
-      label: 'Cancelar seleccionados',
-      action: () => selection.forEach(p => handleCancelar(p)),
-      disabled: !can('pedidos.cancel'),
-      variant: 'danger',
-    },
-  ]
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-            <p className="text-gray-600 mt-1">Gestión de pedidos de SuperTequeños</p>
+          <div className="flex flex-col items-start gap-1">
+            <Badge variant={e.color}>{e.label}</Badge>
+            {['ALTA', 'URGENTE'].includes(row.original.prioridad) && <span className="text-[11px] text-gray-600">Prioridad {prioridad.label.toLowerCase()}</span>}
           </div>
-          <Button disabled> <Plus className="h-4 w-4 mr-2" /> Nuevo Pedido </Button>
-        </div>
-        <Card><CardContent><SkeletonTable rows={5} columns={6} /></CardContent></Card>
-      </div>
-    )
-  }
+        )
+      },
+    },
+    {
+      id: 'acciones',
+      header: () => <span className="block text-right">Acciones operativas</span>,
+      cell: ({ row }) => {
+        const p = row.original
+        const despacho = p.despachos?.at(-1)?.despacho
+        const icono = 'p-2 text-gray-700 hover:bg-gray-100 hover:text-primary'
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <button type="button" className={icono} onClick={() => navigate(`/pedidos/${p.id}`)} aria-label={`Ver pedido ${p.codigo}`} title="Ver detalle">
+              <Eye className="h-4 w-4" />
+            </button>
+            {despacho ? (
+              <button type="button" className={icono} onClick={() => navigate(`/despachos/${despacho.id}`)} aria-label={`Ver despacho ${despacho.codigo}`} title={`Despacho ${despacho.codigo}`}>
+                <Truck className="h-4 w-4" />
+              </button>
+            ) : p.estado === 'LISTO_PARA_DESPACHO' && can('despachos.create') ? (
+              <button type="button" className={icono} onClick={() => navigate('/despachos/nuevo')} aria-label="Programar despacho" title="Programar despacho">
+                <Truck className="h-4 w-4" />
+              </button>
+            ) : (
+              <span className="p-2 text-gray-300" aria-hidden="true"><Truck className="h-4 w-4" /></span>
+            )}
+            <button type="button" className={icono} onClick={() => navigate(`/trazabilidad?pedido=${p.id}`)} aria-label={`Trazabilidad de ${p.codigo}`} title="Trazabilidad">
+              <Route className="h-4 w-4" />
+            </button>
+          </div>
+        )
+      },
+    },
+  ])
+
+  const enCola = resumen?.enCola
+  const deltaCola = enCola ? enCola.registradosHoy - enCola.registradosAyer : 0
+  const vehiculos = Object.entries(resumen?.enRuta.vehiculosEnUso || {})
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-          <p className="text-gray-600 mt-1">Gestión de pedidos de SuperTequeños</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-4 w-4 mr-1" /> Limpiar filtros
-            </Button>
-          )}
-          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Filter className="h-4 w-4 mr-2" /> Filtros
-                {hasActiveFilters && <span className="ml-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">*</span>}
+    <div>
+      <PageHeader
+        modulo="02"
+        seccion="Operaciones de planta & despacho"
+        title="Gestión de Pedidos"
+        description="Control de preventa, preparación en cava y programación de rutas para Valera y zonas aledañas."
+        actions={
+          <>
+            <IndicadorCava cava={resumen?.cava} />
+            {can('pedidos.create') && (
+              <Button size="lg" onClick={() => navigate('/pedidos/nuevo')}>
+                <Plus className="h-5 w-5" aria-hidden="true" /> Registrar nuevo pedido
               </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-80 sm:w-96 p-0">
-              <SheetHeader className="p-4 border-b">
-                <SheetTitle>Filtros de búsqueda</SheetTitle>
-              </SheetHeader>
-              <div className="p-4 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-                  <Input
-                    placeholder="Código, cliente, observaciones..."
-                    value={filters.search}
-                    onChange={e => handleFilterChange('search', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <Select
-                    value={filters.estado.join(',')}
-                    onValueChange={v => handleFilterChange('estado', v ? v.split(',').filter(Boolean) : [])}
-                    multiple
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADO_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
-                  <Select
-                    value={filters.prioridad.join(',')}
-                    onValueChange={v => handleFilterChange('prioridad', v ? v.split(',').filter(Boolean) : [])}
-                    multiple
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas las prioridades" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRIORIDAD_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                  <Select value={filters.clienteId} onValueChange={v => handleFilterChange('clienteId', v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los clientes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes?.data?.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.razonSocial || c.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Zona</label>
-                  <Select value={filters.zonaId} onValueChange={v => handleFilterChange('zonaId', v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas las zonas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {zonas?.data?.map(z => (
-                        <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Separator />
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha desde</label>
-                    <Input type="date" value={filters.fechaDesde} onChange={e => handleFilterChange('fechaDesde', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha hasta</label>
-                    <Input type="date" value={filters.fechaHasta} onChange={e => handleFilterChange('fechaHasta', e.target.value)} />
-                  </div>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+            )}
+          </>
+        }
+      >
+        <Pestanas etiqueta="Vistas de pedidos">
+          <Pestana activa={vista === 'activos'} onClick={() => cambiarVista('activos')} icon={ReceiptText} contador={resumen?.activos ?? '…'}>
+            Listado de pedidos (activos)
+          </Pestana>
           {can('pedidos.create') && (
-            <Button onClick={() => navigate('/pedidos/nuevo')}>
-              <Plus className="h-4 w-4 mr-2" /> Nuevo Pedido
-            </Button>
+            <Pestana activa={false} onClick={() => navigate('/pedidos/nuevo')} icon={FilePlus2}>Nuevo pedido / emisión rápida</Pestana>
           )}
-        </div>
+          <Pestana activa={vista === 'historial'} onClick={() => cambiarVista('historial')} icon={History}>Historial y consulta</Pestana>
+        </Pestanas>
+      </PageHeader>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <KpiCard
+          label="Pedidos en cola"
+          icon={ClipboardClock}
+          loading={cargandoResumen}
+          value={enCola?.total ?? 0}
+          detail={
+            enCola && (
+              <span className={cn('inline-flex items-center gap-1', deltaCola > 0 ? 'text-success' : deltaCola < 0 ? 'text-danger' : 'text-gray-600')}>
+                {deltaCola > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : deltaCola < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : null}
+                {deltaCola > 0 ? '+' : ''}{deltaCola} registrados vs ayer
+              </span>
+            )
+          }
+        />
+        <KpiCard
+          label="En preparación (cava)"
+          icon={Archive}
+          tone="primary"
+          loading={cargandoResumen}
+          value={resumen?.enPreparacion.total ?? 0}
+          detail={resumen && `${num(resumen.enPreparacion.cantidad)} ${resumen.enPreparacion.unidades.join('/') || 'unidades'} en preparación`}
+        />
+        <KpiCard
+          label="En ruta / despacho"
+          icon={Truck}
+          loading={cargandoResumen}
+          value={resumen?.enRuta.total ?? 0}
+          detail={vehiculos.length ? vehiculos.map(([t, n]) => `${n} ${TIPO_VEHICULO[t] || t}`).join(' / ') : 'Sin unidades en ruta'}
+        />
+        <KpiCard
+          label="Efectividad de entrega"
+          icon={CircleCheck}
+          tone="success"
+          loading={cargandoResumen}
+          value={resumen?.efectividad.porcentaje !== null && resumen?.efectividad.porcentaje !== undefined ? `${num(resumen.efectividad.porcentaje)}%` : '—'}
+          detail={resumen && `Últimos ${resumen.efectividad.dias} días · ${resumen.efectividad.incidencias} incidencia(s) reportada(s)`}
+        />
       </div>
 
-      {/* Stats Bar */}
-      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-        <span>{totalItems} pedidos en total</span>
-        {hasActiveFilters && <span className="text-primary font-medium">Filtros activos</span>}
-        <span>Página {pagination.page} de {totalPages}</span>
-      </div>
-
-      {/* Bulk Actions */}
-      {selection.length > 0 && (
-        <Card className="border-primary bg-primary-light/10">
-          <CardContent className="p-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium text-primary">{selection.length} seleccionados</span>
-            <div className="flex items-center gap-2">
-              {bulkActions.map((action, i) => (
-                <Button
-                  key={i}
-                  variant={action.variant === 'danger' ? 'danger' : 'outline'}
-                  size="sm"
-                  onClick={action.action}
-                  disabled={action.disabled || updateEstado.isPending || cancelPedido.isPending}
-                >
-                  {action.label}
-                </Button>
-              ))}
-              <Button variant="ghost" size="sm" onClick={() => setSelection([])}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <DataTable
-            columns={columns}
-            data={pedidos}
-            keyField="id"
-            onRowClick={handleRowClick}
-            selection={{ enabled: true, onChange: setSelection }}
-            sortable
-            filterable
-            pagination
-            pageSize={pagination.limit}
-            showPagination
-            loading={isLoading}
-            emptyMessage="No se encontraron pedidos"
+      <section className="bg-white p-4 mb-6 flex flex-wrap items-center gap-3" aria-label="Filtros">
+        <div className="relative flex-1 min-w-[16rem]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" aria-hidden="true" />
+          <Input
+            aria-label="Buscar pedidos"
+            placeholder="Buscar por código, cliente o dirección…"
+            value={filtros.search}
+            onChange={(e) => cambiarFiltro('search')(e.target.value)}
+            className="pl-9"
           />
-        </CardContent>
-      </Card>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          Estado:
+          <Select value={filtros.estado} onValueChange={cambiarFiltro('estado')}>
+            <SelectTrigger className="w-48" aria-label="Filtrar por estado"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todos</SelectItem>
+              {ESTADOS_PEDIDO.filter((e) => ESTADOS_POR_VISTA[vista].includes(e.value)).map((e) => (
+                <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          Zona:
+          <Select value={filtros.zonaId} onValueChange={cambiarFiltro('zonaId')}>
+            <SelectTrigger className="w-48" aria-label="Filtrar por zona"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todas</SelectItem>
+              {zonas.map((z) => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </label>
+        <Button variant="secondary" onClick={limpiar} disabled={!hayFiltros}>
+          <RotateCcw className="h-4 w-4" aria-hidden="true" /> Limpiar
+        </Button>
+      </section>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <select
-            value={pagination.limit}
-            onChange={e => { setPagination({ page: 1, limit: Number(e.target.value) }) }}
-            className="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm"
-          >
-            {[10, 25, 50, 100].map(size => (
-              <option key={size} value={size}>{size} por página</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-            disabled={pagination.page === 1}
-          >
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-            disabled={pagination.page >= totalPages}
-          >
-            <ChevronDown className="h-4 w-4 rotate-180" />
-          </Button>
-        </div>
+      <section className="mb-6" aria-label="Listado de pedidos">
+        {isError ? (
+          <p role="alert" className="bg-danger-light text-[#a2191f] px-4 py-3 text-sm">No se pudieron cargar los pedidos.</p>
+        ) : (
+          <>
+            <DataTable
+              columns={columnas}
+              data={pedidos}
+              loading={isLoading}
+              sortable={false}
+              pagination={false}
+              showPagination={false}
+              emptyMessage={hayFiltros ? 'Ningún pedido coincide con los filtros.' : vista === 'activos' ? 'No hay pedidos activos.' : 'Sin pedidos en el historial.'}
+            />
+            <PaginacionServidor pagination={data?.pagination} onPageChange={setPage} etiqueta={vista === 'activos' ? 'pedidos activos' : 'pedidos del historial'} />
+          </>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Panel titulo="Capacidad de cava y rutas" extra={resumen?.capacidad.length ? <span className="text-xs font-mono text-success">Activo</span> : null}>
+          {!resumen?.capacidad.length ? (
+            <p className="text-sm text-gray-600">No hay unidades cargadas en este momento.</p>
+          ) : (
+            <ul className="space-y-4">
+              {resumen.capacidad.map((c) => (
+                <li key={c.despacho}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="text-gray-900">{c.vehiculo} · {TIPO_VEHICULO[c.tipo] || c.tipo}{c.esTermico ? ' térmico' : ''}</span>
+                    <span className="font-mono font-semibold whitespace-nowrap">
+                      {c.porcentaje !== null ? `${c.porcentaje}% ` : ''}({num(c.carga)}{c.capacidad ? ` / ${num(c.capacidad)} ${c.unidadCapacidad || ''}` : ''})
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 bg-gray-100" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={c.porcentaje ?? 0} aria-label={`Carga de ${c.vehiculo}`}>
+                    <div className={cn('h-2', (c.porcentaje ?? 0) > 100 ? 'bg-danger' : (c.porcentaje ?? 0) > 85 ? 'bg-primary' : 'bg-success')} style={{ width: `${Math.min(c.porcentaje ?? 0, 100)}%` }} />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-600">{c.despacho}{c.repartidor ? ` · ${c.repartidor}` : ''}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel titulo="Puntos de despacho frecuentes" extra={<span className="text-xs text-gray-600">Últimos 30 días</span>}>
+          {!resumen?.zonasFrecuentes.length ? (
+            <p className="text-sm text-gray-600">Sin pedidos en el período.</p>
+          ) : (
+            <ul className="space-y-2">
+              {resumen.zonasFrecuentes.map((z) => (
+                <li key={z.zonaId}>
+                  <button
+                    type="button"
+                    onClick={() => cambiarFiltro('zonaId')(z.zonaId)}
+                    className="w-full flex items-center gap-3 bg-gray-50 px-4 py-3 text-left hover:bg-gray-100"
+                  >
+                    <Building2 className="h-5 w-5 text-primary flex-shrink-0" aria-hidden="true" />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-semibold text-gray-900">{z.nombre}</span>
+                      {z.municipio && <span className="block text-xs text-gray-600">{z.municipio}</span>}
+                    </span>
+                    <span className="font-mono text-sm whitespace-nowrap">{z.pedidos} pedido(s)</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel titulo="Protocolo de preventa" extra={<ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />}>
+          <p className="text-sm text-gray-700">
+            SuperTequeños C.A. elabora producto ultracongelado. Los despachos en planta deben contar con precinto de
+            seguridad y registro de temperatura antes de la salida a ruta.
+          </p>
+          <div className="mt-4 bg-gray-50 p-4 space-y-2 text-sm">
+            <p className="flex items-center gap-2">
+              <CircleCheck className="h-4 w-4 text-success flex-shrink-0" aria-hidden="true" />
+              {resumen?.loteVigente ? (
+                <span>Lote vigente en cava (FEFO): <span className="font-mono font-semibold">{resumen.loteVigente.codigo}</span></span>
+              ) : (
+                <span>Sin lotes disponibles en cava</span>
+              )}
+            </p>
+            {resumen?.loteVigente && (
+              <p className="text-xs text-gray-600 pl-6">
+                {resumen.loteVigente.producto} · {num(resumen.loteVigente.stock)} en {resumen.loteVigente.ubicacion}
+                {resumen.loteVigente.fechaVencimiento && ` · vence ${fechaSinHora(resumen.loteVigente.fechaVencimiento)}`}
+              </p>
+            )}
+            <p className="flex items-center gap-2">
+              <CircleCheck className={cn('h-4 w-4 flex-shrink-0', resumen?.cava?.conforme ? 'text-success' : 'text-gray-400')} aria-hidden="true" />
+              {resumen?.cava ? `Última medición de cava: ${resumen.cava.temperaturaC.toFixed(1)} °C (límite ${resumen.cava.limiteCriticoC} °C)` : 'Sin medición de cava registrada'}
+            </p>
+          </div>
+        </Panel>
       </div>
     </div>
   )

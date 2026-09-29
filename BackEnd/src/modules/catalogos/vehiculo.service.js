@@ -1,5 +1,6 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
 
 async function listVehiculos(query) {
   const { page, limit, skip } = getPagination(query)
@@ -34,17 +35,17 @@ async function getVehiculoById(id) {
     where: { id },
     include: { despachos: { take: 5, orderBy: { fechaHoraSalida: 'desc' } } },
   })
-  if (!vehiculo) throw new Error('Vehículo no encontrado')
+  if (!vehiculo) throw new AppError('Vehículo no encontrado', 404)
   return vehiculo
 }
 
 async function createVehiculo(data) {
   const existing = await prisma.vehiculo.findUnique({ where: { codigo: data.codigo } })
-  if (existing) throw new Error('El código ya existe')
+  if (existing) throw new AppError('El código ya existe', 409)
 
   if (data.placa) {
     const existingPlaca = await prisma.vehiculo.findUnique({ where: { placa: data.placa } })
-    if (existingPlaca) throw new Error('La placa ya existe')
+    if (existingPlaca) throw new AppError('La placa ya existe', 409)
   }
 
   return prisma.vehiculo.create({ data })
@@ -52,11 +53,11 @@ async function createVehiculo(data) {
 
 async function updateVehiculo(id, data) {
   const vehiculo = await prisma.vehiculo.findUnique({ where: { id } })
-  if (!vehiculo) throw new Error('Vehículo no encontrado')
+  if (!vehiculo) throw new AppError('Vehículo no encontrado', 404)
 
   if (data.placa && data.placa !== vehiculo.placa) {
     const existing = await prisma.vehiculo.findUnique({ where: { placa: data.placa } })
-    if (existing) throw new Error('La placa ya existe')
+    if (existing) throw new AppError('La placa ya existe', 409)
   }
 
   return prisma.vehiculo.update({ where: { id }, data })
@@ -64,10 +65,10 @@ async function updateVehiculo(id, data) {
 
 async function deleteVehiculo(id) {
   const vehiculo = await prisma.vehiculo.findUnique({ where: { id } })
-  if (!vehiculo) throw new Error('Vehículo no encontrado')
+  if (!vehiculo) throw new AppError('Vehículo no encontrado', 404)
 
   const hasDespachos = await prisma.despacho.count({ where: { vehiculoId: id } })
-  if (hasDespachos > 0) throw new Error('No se puede eliminar: tiene despachos asociados')
+  if (hasDespachos > 0) throw new AppError('No se puede eliminar: tiene despachos asociados', 400)
 
   return prisma.vehiculo.delete({ where: { id } })
 }

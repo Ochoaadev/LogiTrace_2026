@@ -1,499 +1,371 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Route, XCircle, Truck, AlertCircle, ChevronRight } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
-import { FormField } from '@/components/ui/FormField'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/DropdownMenu'
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogAction, DialogCancel } from '@/components/ui/Dialog'
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from '@/components/ui/AlertDialog'
-import { DataTable, createTableColumns, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from '@/components/ui/Table'
-import { Skeleton, SkeletonTable, SkeletonCard } from '@/components/ui/Skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
+import { DataTable, createTableColumns } from '@/components/ui/Table'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import { usePermissions } from '@/hooks/usePermissions'
-import { usePedido, useUpdateEstadoPedido, useCancelPedido, useAsignarDespacho } from '@/services/query/usePedidos'
+import { usePedido, useAvanzarPedido, useCancelPedido, useAsignarDespacho } from '@/services/query/usePedidos'
 import { useDespachos } from '@/services/query/useDespachos'
-import { useIncidencias } from '@/services/query/useIncidencias'
-import { useDevoluciones } from '@/services/query/useDevoluciones'
-import { pedidoService } from '@/services/pedidoService'
-import { getEstadoConfig, getPrioridadConfig, ESTADOS_PEDIDO } from '@/schemas/pedidoSchema'
-import { cn } from '@/lib/utils'
-import {
-  Package, Truck, AlertTriangle, RotateCcw,
-  MoreHorizontal, Calendar, MapPin, Flag,
-  Clock, User, MapPin as MapPinIcon,
-  Eye, Edit, Trash2, ArrowRight, CheckCircle,
-  XCircle, AlertCircle, RotateCcw as RotateCcwIcon,
-  Plus, Loader2, ChevronDown
-} from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
+import { useExpediente } from '@/services/query/useTrazabilidad'
+import { getEstadoConfig, getPrioridadConfig, TRANSICIONES_PEDIDO } from '@/schemas/pedidoSchema'
+import { getEstadoConfig as getEstadoDespachoConfig } from '@/schemas/despachoSchema'
+import { LineaTemporal } from '@/pages/Trazabilidad/components/LineaTemporal'
 
-const ESTADO_TRANSITIONS = {
-  REGISTRADO: ['EN_PREPARACION', 'CANCELADO'],
-  EN_PREPARACION: ['LISTO_PARA_DESPACHO', 'CANCELADO'],
-  LISTO_PARA_DESPACHO: ['EN_RUTA', 'EN_PREPARACION', 'CANCELADO'],
-  EN_RUTA: ['ENTREGADO', 'CON_INCIDENCIA', 'DEVUELTO'],
-  ENTREGADO: ['CERRADO'],
-  CON_INCIDENCIA: ['EN_RUTA', 'DEVUELTO', 'CANCELADO'],
-  DEVUELTO: ['REGISTRADO', 'CANCELADO'],
-  CERRADO: [],
-  CANCELADO: [],
+// Acción de la UI para cada estado destino. EN_RUTA no se ofrece aquí: ocurre al asignar el
+// pedido a un despacho y ponerlo en ruta desde el módulo de despachos.
+const ACCION = {
+  EN_PREPARACION: 'Enviar a preparación',
+  LISTO_PARA_DESPACHO: 'Marcar listo para despacho',
+  ENTREGADO: 'Registrar entrega',
+  CON_INCIDENCIA: 'Marcar con incidencia',
+  DEVUELTO: 'Marcar devuelto',
+  CERRADO: 'Cerrar pedido',
 }
 
-const ICONOS_ESTADO = {
-  REGISTRADO: Package,
-  EN_PREPARACION: Package,
-  LISTO_PARA_DESPACHO: Truck,
-  EN_RUTA: Truck,
-  ENTREGADO: CheckCircle,
-  CON_INCIDENCIA: AlertCircle,
-  DEVUELTO: RotateCcwIcon,
-  CERRADO: CheckCircle,
-  CANCELADO: XCircle,
+const METODO_ENTREGA = { DOMICILIO: 'A domicilio', RETIRO_EN_ESTABLECIMIENTO: 'Retiro en establecimiento' }
+
+const fechaHora = (d) =>
+  d ? new Date(d).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+const num = (v) => Number(v ?? 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })
+const mensajeError = (err, porDefecto) => err?.errors?.[0]?.mensaje || err?.message || porDefecto
+
+function Dato({ etiqueta, children }) {
+  return (
+    <div className="bg-white p-4">
+      <p className="label-caps">{etiqueta}</p>
+      <p className="mt-2 text-lg font-semibold text-gray-900">{children}</p>
+    </div>
+  )
+}
+
+function Fila({ etiqueta, children }) {
+  return (
+    <div className="grid grid-cols-[10rem_1fr] gap-4 py-2 border-b border-gray-100 last:border-0">
+      <dt className="text-sm text-gray-600">{etiqueta}</dt>
+      <dd className="text-sm text-gray-900">{children || '—'}</dd>
+    </div>
+  )
 }
 
 export default function PedidoDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { can } = usePermissions()
-  const { user } = useAuth()
 
-  const { data: pedido, isLoading, error, refetch } = usePedido(id)
-  const { data: despachos } = useDespachos({ page: 1, limit: 10 })
-  const { data: incidencias } = useIncidencias({ page: 1, limit: 10 })
-  const { data: devoluciones } = useDevoluciones({ page: 1, limit: 10 })
+  const { data: pedido, isLoading, error } = usePedido(id)
+  const expediente = useExpediente(id)
+  const avanzar = useAvanzarPedido()
 
-  const updateEstado = useUpdateEstadoPedido()
-  const cancelPedido = useCancelPedido()
-  const asignarDespacho = useAsignarDespacho()
+  const [dialogo, setDialogo] = useState(null)
+  const [errorAccion, setErrorAccion] = useState(null)
 
-  const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const [cancelMotivo, setCancelMotivo] = useState('')
-  const [showAsignarDialog, setShowAsignarDialog] = useState(false)
-  const [despachoId, setDespachoId] = useState('')
+  if (isLoading) return <SkeletonCard />
 
-  const pedidoData = pedido?.data
-  const currentEstado = pedidoData?.estado
-  const allowedNextStates = ESTADO_TRANSITIONS[currentEstado] || []
-
-  if (isLoading) {
+  const p = pedido?.data
+  if (error || !p) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Detalle del Pedido</h1>
-            <p className="text-gray-600 mt-1">Cargando...</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <SkeletonKPI key={i} />)}
-        </div>
-        <SkeletonCard />
-      </div>
-    )
-  }
-
-  if (error || !pedidoData) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" />
+      <div className="bg-white text-center py-12">
+        <AlertCircle className="h-12 w-12 mx-auto text-danger mb-4" aria-hidden="true" />
         <h2 className="text-xl font-semibold text-gray-900">Pedido no encontrado</h2>
-        <p className="text-gray-600 mt-2">El pedido solicitado no existe o no tienes permisos para verlo</p>
-        <Button className="mt-4" onClick={() => navigate('/pedidos')}>Volver a lista</Button>
+        <Button className="mt-4" onClick={() => navigate('/pedidos')}>Volver a pedidos</Button>
       </div>
     )
   }
 
-  const handleEstadoChange = async (nuevoEstado) => {
+  const estado = getEstadoConfig(p.estado)
+  const prioridad = getPrioridadConfig(p.prioridad)
+  const siguientes = TRANSICIONES_PEDIDO[p.estado] || []
+  const acciones = siguientes.filter((e) => ACCION[e])
+  const puedeCancelar = siguientes.includes('CANCELADO') && can('pedidos.cancel')
+  const puedeAsignar = p.estado === 'LISTO_PARA_DESPACHO' && can('pedidos.assign_despacho')
+
+  const totalProductos = p.detalles.reduce((s, d) => s + Number(d.cantidad), 0)
+  const unidades = [...new Set(p.detalles.map((d) => d.unidad))]
+  const totalMonto = p.total ?? (p.detalles.some((d) => d.subtotal) ? p.detalles.reduce((s, d) => s + Number(d.subtotal || 0), 0) : null)
+
+  const ejecutar = async (nuevoEstado) => {
+    setErrorAccion(null)
     try {
-      await updateEstado.mutateAsync({ id, estado: nuevoEstado })
-      refetch()
+      await avanzar.mutateAsync({ id, estado: nuevoEstado })
     } catch (err) {
-      console.error('Error:', err)
+      setErrorAccion(mensajeError(err, 'No se pudo cambiar el estado del pedido'))
     }
   }
 
-  const handleCancel = async () => {
-    if (!cancelMotivo.trim()) return
-    try {
-      await cancelPedido.mutateAsync({ id, motivo: cancelMotivo })
-      refetch()
-      setShowCancelDialog(false)
-      setCancelMotivo('')
-    } catch (err) {
-      console.error('Error:', err)
-    }
-  }
-
-  const handleAsignarDespacho = async () => {
-    if (!despachoId) return
-    try {
-      await asignarDespacho.mutateAsync({ id, despachoId })
-      refetch()
-      setShowAsignarDialog(false)
-      setDespachoId('')
-    } catch (err) {
-      console.error('Error:', err)
-    }
-  }
-
-  const getEstadoIcon = (estado) => {
-    return ICONOS_ESTADO[estado] || Package
-  }
-
-  const formatFecha = (fecha) => fecha ? new Date(fecha).toLocaleString('es-ES', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  }) : '—'
-
-  const timelineEvents = [
-    { estado: 'REGISTRADO', label: 'Registrado', fecha: pedidoData.fechaCreacion, user: pedidoData.creadoPor },
-    { estado: 'EN_PREPARACION', label: 'En Preparación', fecha: pedidoData.fechaPreparacion, user: pedidoData.preparadoPor },
-    { estado: 'LISTO_PARA_DESPACHO', label: 'Listo para Despacho', fecha: pedidoData.fechaListo, user: pedidoData.listadoPor },
-    { estado: 'EN_RUTA', label: 'En Ruta', fecha: pedidoData.fechaSalida, user: pedidoData.repartidor?.nombre },
-    { estado: 'ENTREGADO', label: 'Entregado', fecha: pedidoData.fechaEntrega, user: pedidoData.entregadoPor },
-    { estado: 'CERRADO', label: 'Cerrado', fecha: pedidoData.fechaCierre, user: pedidoData.cerradoPor },
-  ].filter(e => e.fecha)
+  const exp = expediente.data
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{pedidoData.codigo}</h1>
-            <Badge variant={getEstadoConfig(currentEstado).color} className="text-sm">
-              {getEstadoConfig(currentEstado).label}
-            </Badge>
-            <Badge variant={getPrioridadConfig(pedidoData.prioridad).color}>
-              {getPrioridadConfig(pedidoData.prioridad).label}
-            </Badge>
-          </div>
-          <p className="text-gray-600 mt-1">Cliente: {pedidoData.cliente?.razonSocial || pedidoData.cliente?.nombre || '—'}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <MoreHorizontal className="h-4 w-4 mr-1" /> Acciones
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Cambiar Estado</DropdownMenuLabel>
-              {allowedNextStates.map(estado => (
-                <DropdownMenuItem
-                  key={estado}
-                  onClick={() => handleEstadoChange(estado)}
-                  disabled={updateEstado.isPending}
-                >
-                  {getEstadoConfig(estado).label}
-                </DropdownMenuItem>
-              ))}
-              {allowedNextStates.length === 0 && (
-                <DropdownMenuItem className="text-gray-400 cursor-not-allowed">
-                  Sin transiciones disponibles
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setShowAsignarDialog(true)}
-                disabled={!can('pedidos.assign_despacho') || asignarDespacho.isPending}
-              >
-                <Truck className="h-4 w-4" /> Asignar Despacho
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowCancelDialog(true)}
-                disabled={!can('pedidos.cancel') || cancelPedido.isPending}
-                className="text-danger focus:text-danger"
-              >
-                <XCircle className="h-4 w-4" /> Cancelar Pedido
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/pedidos')}>
-            Volver
-          </Button>
-        </div>
+    <div>
+      <PageHeader
+        modulo="02"
+        seccion="Operaciones de planta & despacho · detalle"
+        title={`Pedido ${p.codigo}`}
+        description={`${p.cliente?.razonSocial || 'Cliente'} · registrado el ${fechaHora(p.fechaHora)}`}
+        tags={
+          <>
+            <Badge variant={estado.color}>{estado.label}</Badge>
+            <Badge variant={prioridad.color}>Prioridad {prioridad.label?.toLowerCase()}</Badge>
+          </>
+        }
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => navigate('/pedidos')}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Volver
+            </Button>
+            <Button variant="secondary" onClick={() => navigate(`/trazabilidad?pedido=${id}`)}>
+              <Route className="h-4 w-4" aria-hidden="true" /> Ver trazabilidad
+            </Button>
+          </>
+        }
+      />
+
+      {/* Acciones de estado disponibles */}
+      {can('pedidos.edit') && (acciones.length > 0 || puedeCancelar || puedeAsignar) && (
+        <section className="bg-white px-6 py-4 mb-6 flex flex-wrap items-center gap-3" aria-label="Acciones del pedido">
+          <span className="label-caps mr-2">Acciones:</span>
+          {acciones.map((e) => (
+            <Button key={e} size="sm" onClick={() => ejecutar(e)} disabled={avanzar.isPending} loading={avanzar.isPending && avanzar.variables?.estado === e}>
+              {ACCION[e]}
+            </Button>
+          ))}
+          {puedeAsignar && (
+            <Button size="sm" variant="secondary" onClick={() => setDialogo('asignar')}>
+              <Truck className="h-4 w-4" aria-hidden="true" /> Asignar a despacho
+            </Button>
+          )}
+          {puedeCancelar && (
+            <Button size="sm" variant="ghost" className="text-danger" onClick={() => setDialogo('cancelar')}>
+              <XCircle className="h-4 w-4" aria-hidden="true" /> Cancelar pedido
+            </Button>
+          )}
+          {errorAccion && <p role="alert" className="w-full text-sm text-danger">{errorAccion}</p>}
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Dato etiqueta="Registrado">{fechaHora(p.fechaHora)}</Dato>
+        <Dato etiqueta="Productos">{num(totalProductos)} <span className="text-sm font-normal text-gray-600">{unidades.join(' / ')}</span></Dato>
+        <Dato etiqueta="Total">{totalMonto !== null ? `$${num(totalMonto)}` : 'Sin precio'}</Dato>
+        <Dato etiqueta="Entrega">{METODO_ENTREGA[p.metodoEntrega] || p.metodoEntrega}</Dato>
       </div>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Creado</p>
-            <p className="font-medium text-gray-900">{formatFecha(pedidoData.fechaCreacion)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Entrega Solicitada</p>
-            <p className="font-medium text-gray-900">{pedidoData.fechaEntregaSolicitada ? new Date(pedidoData.fechaEntregaSolicitada).toLocaleDateString('es-ES') : 'No especificada'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Total Productos</p>
-            <p className="font-medium text-gray-900">
-              {pedidoData.detalles?.reduce((sum, d) => sum + d.cantidad, 0) || 0}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Subtotal</p>
-            <p className="font-medium text-gray-900">
-              ${pedidoData.detalles?.reduce((sum, d) => sum + d.cantidad * d.precioUnitario, 0).toLocaleString('es-ES', { minimumFractionDigits: 2 }) || '0.00'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="info" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="info" className="bg-white px-4 pb-4">
+        <TabsList>
           <TabsTrigger value="info">Información</TabsTrigger>
-          <TabsTrigger value="productos">Productos</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="despachos">Despachos</TabsTrigger>
-          <TabsTrigger value="incidencias">Incidencias</TabsTrigger>
+          <TabsTrigger value="productos">Productos ({p.detalles.length})</TabsTrigger>
+          <TabsTrigger value="historial">Historial ({exp?.timeline.length ?? '…'})</TabsTrigger>
+          <TabsTrigger value="despachos">Despachos ({p.despachos.length})</TabsTrigger>
+          <TabsTrigger value="novedades">Incidencias y devoluciones ({exp ? exp.incidencias.length + exp.devoluciones.length : '…'})</TabsTrigger>
         </TabsList>
 
-        {/* Info Tab */}
-        <TabsContent value="info" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Datos Generales</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <dt className="text-gray-500">Código</dt>
-                  <dd className="font-mono font-medium">{pedidoData.codigo}</dd>
-                  <dt className="text-gray-500">Estado</dt>
-                  <dd><Badge variant={getEstadoConfig(currentEstado).color}>{getEstadoConfig(currentEstado).label}</Badge></dd>
-                  <dt className="text-gray-500">Prioridad</dt>
-                  <dd><Badge variant={getPrioridadConfig(pedidoData.prioridad).color}>{getPrioridadConfig(pedidoData.prioridad).label}</Badge></dd>
-                  <dt className="text-gray-500">Cliente</dt>
-                  <dd>{pedidoData.cliente?.razonSocial || pedidoData.cliente?.nombre || '—'}</dd>
-                  <dt className="text-gray-500">Documento</dt>
-                  <dd>{pedidoData.cliente?.documento || '—'}</dd>
-                  <dt className="text-gray-500">Zona</dt>
-                  <dd>{pedidoData.zona?.nombre || '—'}</dd>
-                  <dt className="text-gray-500">Fecha Creación</dt>
-                  <dd>{formatFecha(pedidoData.fechaCreacion)}</dd>
-                  <dt className="text-gray-500">Entrega Solicitada</dt>
-                  <dd>{pedidoData.fechaEntregaSolicitada ? new Date(pedidoData.fechaEntregaSolicitada).toLocaleDateString('es-ES') : 'No especificada'}</dd>
-                  <dt className="text-gray-500">Entrega Real</dt>
-                  <dd>{formatFecha(pedidoData.fechaEntrega)}</dd>
-                </dl>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Observaciones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 whitespace-pre-wrap">{pedidoData.observaciones || 'Sin observaciones'}</p>
-              </CardContent>
-            </Card>
+        <TabsContent value="info">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2">
+            <div>
+              <h3 className="label-caps mb-2">Cliente y entrega</h3>
+              <dl>
+              <Fila etiqueta="Cliente">{p.cliente?.razonSocial}</Fila>
+              <Fila etiqueta="Documento">{p.cliente?.numeroDocumento}</Fila>
+              <Fila etiqueta="Contacto">{[p.cliente?.nombreContacto, p.telefonoContacto || p.cliente?.telefono].filter(Boolean).join(' · ')}</Fila>
+              <Fila etiqueta="Dirección">{p.direccionEntrega}</Fila>
+              <Fila etiqueta="Referencia">{p.referenciaEntrega}</Fila>
+              <Fila etiqueta="Zona">{p.zona?.nombre}</Fila>
+              </dl>
+            </div>
+            <div>
+              <h3 className="label-caps mb-2">Registro</h3>
+              <dl>
+              <Fila etiqueta="Código"><span className="font-mono">{p.codigo}</span></Fila>
+              <Fila etiqueta="Registrado por">{p.creadoPor?.nombre}</Fila>
+              <Fila etiqueta="Fecha">{fechaHora(p.fechaHora)}</Fila>
+              <Fila etiqueta="Última actualización">{fechaHora(p.updatedAt)}</Fila>
+              <Fila etiqueta="Observaciones">{p.observaciones}</Fila>
+              </dl>
+            </div>
           </div>
         </TabsContent>
 
-        {/* Productos Tab */}
         <TabsContent value="productos">
-          <Card>
-            <CardContent className="p-0">
-              {pedidoData.detalles?.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    { accessorKey: 'producto', header: 'Producto', cell: (_, row) => row.original.producto?.nombre || '—' },
-                    { accessorKey: 'cantidad', header: 'Cantidad', cell: (val) => <span className="font-mono">{val}</span> },
-                    { accessorKey: 'precioUnitario', header: 'P. Unit.', cell: (val) => `$${Number(val).toLocaleString('es-ES', { minimumFractionDigits: 2 })}` },
-                    { accessorKey: 'subtotal', header: 'Subtotal', cell: (_, row) => `$${(Number(row.original.cantidad) * Number(row.original.precioUnitario)).toLocaleString('es-ES', { minimumFractionDigits: 2 })}` },
-                  ])}
-                  data={pedidoData.detalles.map(d => ({ ...d, subtotal: d.cantidad * d.precioUnitario }))}
-                  keyField="id"
-                  showPagination={false}
-                  sortable={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500">Sin productos</div>
-              )}
-            </CardContent>
-          </Card>
+          <DataTable
+            showPagination={false}
+            data={p.detalles}
+            columns={createTableColumns([
+              { accessorKey: 'producto', header: 'Producto', cell: (_, row) => <><span className="font-mono text-xs text-gray-600 mr-2">{row.original.producto?.codigo}</span>{row.original.producto?.nombre}</> },
+              { accessorKey: 'cantidad', header: 'Cantidad', cell: (v, row) => <span className="font-mono">{num(v)} {row.original.unidad}</span> },
+              { accessorKey: 'precioUnitario', header: 'Precio unit.', cell: (v) => (v ? `$${num(v)}` : '—') },
+              { accessorKey: 'subtotal', header: 'Subtotal', cell: (v) => (v ? `$${num(v)}` : '—') },
+              {
+                accessorKey: 'detallesDespacho',
+                header: 'Lotes despachados',
+                cell: (v) => (v?.length ? <span className="font-mono text-xs">{v.map((d) => d.lote?.codigo || '—').join(', ')}</span> : '—'),
+              },
+            ])}
+          />
         </TabsContent>
 
-        {/* Timeline Tab */}
-        <TabsContent value="timeline">
-          <Card>
-            <CardContent className="p-4">
-              <div className="relative">
-                <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200" />
-                {timelineEvents.map((event, index) => {
-                  const isCurrent = event.estado === currentEstado
-                  const isPast = ESTADOS_PEDIDO.findIndex(e => e.value === event.estado) <= ESTADOS_PEDIDO.findIndex(e => e.value === currentEstado)
-                  const Icon = ICONOS_ESTADO[event.estado] || Package
-                  const config = getEstadoConfig(event.estado)
-
-                  return (
-                    <div key={event.estado} className="relative pl-16 pb-8 last:pb-0">
-                      <div className={cn(
-                        'absolute left-6 w-3 h-3 rounded-full border-2 flex items-center justify-center',
-                        isPast ? `bg-${config.color} border-${config.color}` : 'bg-white border-gray-300',
-                        isCurrent && 'ring-2 ring-offset-2 ring-primary'
-                      )}>
-                        {isPast && <CheckCircle className="h-2 w-2 text-white" />}
-                        {!isPast && <Icon className={cn('h-2.5 w-2.5', `text-${config.color}`)} />}
-                      </div>
-                      <div className={cn('bg-gray-50 rounded-lg p-4', isCurrent ? 'ring-2 ring-primary ring-offset-2' : '')}>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <p className={cn('font-medium', isCurrent ? 'text-primary' : 'text-gray-900')}>{event.label}</p>
-                            <p className="text-sm text-gray-500">{formatFecha(event.fecha)}</p>
-                            {event.user && <p className="text-xs text-gray-400 mt-1">Por: {event.user}</p>}
-                          </div>
-                          {isCurrent && <Badge variant="primary" className="self-start">Actual</Badge>}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {timelineEvents.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                    <p>Sin eventos registrados aún</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="historial">
+          {expediente.isLoading ? <SkeletonCard /> : exp ? <LineaTemporal eventos={exp.timeline} /> : <p className="p-6 text-sm text-gray-600">No se pudo cargar el historial.</p>}
         </TabsContent>
 
-        {/* Despachos Tab */}
         <TabsContent value="despachos">
-          <Card>
-            <CardContent className="p-0">
-              {despachos?.data?.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    { accessorKey: 'codigo', header: 'Código' },
-                    { accessorKey: 'estado', header: 'Estado', cell: (val) => <Badge variant={getEstadoConfig(val).color}>{getEstadoConfig(val).label}</Badge> },
-                    { accessorKey: 'repartidor', header: 'Repartidor', cell: (_, row) => row.original.repartidor?.nombre || '—' },
-                    { accessorKey: 'vehiculo', header: 'Vehículo', cell: (_, row) => row.original.vehiculo?.placa || '—' },
-                    { accessorKey: 'fechaSalida', header: 'Salida', cell: (val) => formatFecha(val) },
-                  ])}
-                  data={despachos.data}
-                  keyField="id"
-                  onRowClick={(row) => navigate(`/despachos/${row.id}`)}
-                  showPagination={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500">
-                  <Truck className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                  <p>No hay despachos asociados</p>
-                  {can('pedidos.assign_despacho') && (
-                    <Button className="mt-4" onClick={() => setShowAsignarDialog(true)}>
-                      <Plus className="h-4 w-4 mr-1" /> Asignar Despacho
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {p.despachos.length === 0 ? (
+            <p className="p-6 text-sm text-gray-600">El pedido aún no ha sido asignado a un despacho.</p>
+          ) : (
+            <DataTable
+              showPagination={false}
+              data={p.despachos}
+              onRowClick={(row) => navigate(`/despachos/${row.despachoId}`)}
+              columns={createTableColumns([
+                { accessorKey: 'despacho', header: 'Despacho', cell: (_, row) => <span className="font-mono text-primary">{row.original.despacho?.codigo}</span> },
+                { accessorKey: 'ordenParada', header: 'Parada', cell: (v) => <span className="font-mono">#{v}</span> },
+                { accessorKey: 'estado', header: 'Estado de la entrega', cell: (v) => <Badge>{v?.replaceAll('_', ' ').toLowerCase()}</Badge> },
+                {
+                  accessorKey: 'despachoId',
+                  header: 'Estado del despacho',
+                  cell: (_, row) => {
+                    const c = getEstadoDespachoConfig(row.original.despacho?.estado)
+                    return <Badge variant={c.color}>{c.label}</Badge>
+                  },
+                },
+                { accessorKey: 'horaEntrega', header: 'Entrega', cell: (v, row) => (v ? `${fechaHora(v)}${row.original.receptor ? ` · ${row.original.receptor}` : ''}` : '—') },
+              ])}
+            />
+          )}
         </TabsContent>
 
-        {/* Incidencias Tab */}
-        <TabsContent value="incidencias">
-          <Card>
-            <CardContent className="p-0">
-              {incidencias?.data?.length ? (
-                <DataTable
-                  columns={createTableColumns([
-                    { accessorKey: 'codigo', header: 'Código' },
-                    { accessorKey: 'tipo', header: 'Tipo', cell: (_, row) => row.original.tipoIncidencia?.nombre || '—' },
-                    { accessorKey: 'estado', header: 'Estado', cell: (val) => <Badge variant={getEstadoConfig(val).color}>{getEstadoConfig(val).label}</Badge> },
-                    { accessorKey: 'fechaCreacion', header: 'Fecha', cell: (val) => formatFecha(val) },
-                  ])}
-                  data={incidencias.data}
-                  keyField="id"
-                  onRowClick={(row) => navigate(`/incidencias/${row.id}`)}
-                  showPagination={false}
-                />
-              ) : (
-                <div className="p-8 text-center text-gray-500">
-                  <AlertTriangle className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                  <p>Sin incidencias registradas</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="novedades">
+          {!exp ? (
+            <SkeletonCard />
+          ) : exp.incidencias.length + exp.devoluciones.length === 0 ? (
+            <p className="p-6 text-sm text-gray-600">Sin incidencias ni devoluciones.</p>
+          ) : (
+            <ul className="space-y-2">
+              {exp.incidencias.map((i) => (
+                <li key={i.id}>
+                  <Link to={`/incidencias/${i.id}`} className="flex items-center gap-3 bg-danger-light px-4 py-3 text-sm hover:opacity-90">
+                    <span className="font-mono font-semibold">{i.codigo}</span>
+                    <span className="flex-1">{i.tipo} · {i.estado.toLowerCase()} · {fechaHora(i.fechaHora)}</span>
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+              {exp.devoluciones.map((d) => (
+                <li key={d.id}>
+                  <Link to={`/devoluciones/${d.id}`} className="flex items-center gap-3 bg-gray-100 px-4 py-3 text-sm hover:bg-gray-200">
+                    <span className="font-mono font-semibold">{d.codigo}</span>
+                    <span className="flex-1">{d.motivo} · {d.estado.toLowerCase()} · {fechaHora(d.fechaRegistro)}</span>
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* Cancel Dialog */}
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar Pedido</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. El pedido quedará marcado como cancelado.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo de cancelación *</label>
-            <Textarea
-              value={cancelMotivo}
-              onChange={e => setCancelMotivo(e.target.value)}
-              placeholder="Escriba el motivo..."
-              rows={3}
-              className="w-full"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setShowCancelDialog(false); setCancelMotivo('') }}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancel} disabled={cancelPedido.isPending || !cancelMotivo.trim()}>
-              {cancelPedido.isPending ? 'Cancelando...' : 'Confirmar Cancelación'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialogo === 'cancelar' && <CancelarDialog pedido={p} onClose={() => setDialogo(null)} />}
+      {dialogo === 'asignar' && <AsignarDespachoDialog pedido={p} onClose={() => setDialogo(null)} />}
+    </div>
+  )
+}
 
-      {/* Asignar Despacho Dialog */}
-      <Dialog open={showAsignarDialog} onOpenChange={setShowAsignarDialog}>
-        <DialogContent>
+function CancelarDialog({ pedido, onClose }) {
+  const cancelar = useCancelPedido()
+  const [motivo, setMotivo] = useState('')
+  const [error, setError] = useState(null)
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await cancelar.mutateAsync({ id: pedido.id, motivo })
+      onClose()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo cancelar el pedido'))
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>Asignar Despacho</DialogTitle>
-            <DialogDescription>Seleccione un despacho disponible para este pedido</DialogDescription>
+            <DialogTitle>Cancelar pedido {pedido.codigo}</DialogTitle>
+            <DialogDescription>El motivo queda registrado en la trazabilidad del pedido.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Select value={despachoId} onValueChange={setDespachoId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar despacho..." />
-              </SelectTrigger>
-              <SelectContent>
-                {despachos?.data?.filter(d => ['PREPARACION', 'LISTO_PARA_DESPACHO'].includes(d.estado))
-                  .map(d => (
+          <div className="grid gap-2">
+            <Label htmlFor="motivo-cancelacion">Motivo</Label>
+            <Textarea id="motivo-cancelacion" rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} required />
+          </div>
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+          <DialogFooter>
+            <DialogCancel type="button">Volver</DialogCancel>
+            <Button type="submit" variant="danger" disabled={!motivo.trim() || cancelar.isPending} loading={cancelar.isPending}>Cancelar pedido</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function AsignarDespachoDialog({ pedido, onClose }) {
+  const asignar = useAsignarDespacho()
+  const { data } = useDespachos({}, { page: 1, limit: 100 })
+  // Solo despachos que aún no salieron (el backend rechaza el resto)
+  const abiertos = (data?.data || []).filter((d) => ['PROGRAMADO', 'PREPARANDO'].includes(d.estado))
+  const [despachoId, setDespachoId] = useState('')
+  const [error, setError] = useState(null)
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await asignar.mutateAsync({ id: pedido.id, despachoId })
+      onClose()
+    } catch (err) {
+      setError(mensajeError(err, 'No se pudo asignar el despacho'))
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Asignar {pedido.codigo} a un despacho</DialogTitle>
+            <DialogDescription>Se agrega como última parada de un despacho programado o en preparación.</DialogDescription>
+          </DialogHeader>
+          {abiertos.length === 0 ? (
+            <p className="text-sm text-gray-700">No hay despachos programados o en preparación. Cree uno en el módulo de despachos.</p>
+          ) : (
+            <div className="grid gap-2">
+              <Label htmlFor="despacho-destino">Despacho</Label>
+              <Select value={despachoId} onValueChange={setDespachoId}>
+                <SelectTrigger id="despacho-destino"><SelectValue placeholder="Seleccione un despacho" /></SelectTrigger>
+                <SelectContent>
+                  {abiertos.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {d.codigo} - {d.repartidor?.nombre || 'Sin repartidor'} ({d.estado})
+                      {d.codigo} · {d.repartidor?.usuario?.nombre || 'sin repartidor'} · {d.estado.toLowerCase()}
                     </SelectItem>
                   ))}
-              </SelectContent>
-            </Select>
-          </div>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
           <DialogFooter>
-            <DialogCancel onClick={() => { setShowAsignarDialog(false); setDespachoId('') }}>Cancelar</DialogCancel>
-            <DialogAction onClick={handleAsignarDespacho} disabled={asignarDespacho.isPending || !despachoId}>
-              {asignarDespacho.isPending ? 'Asignando...' : 'Asignar'}
-            </DialogAction>
+            <DialogCancel type="button">Cancelar</DialogCancel>
+            <Button type="submit" disabled={!despachoId || asignar.isPending} loading={asignar.isPending}>Asignar</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

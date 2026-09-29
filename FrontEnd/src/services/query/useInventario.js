@@ -9,6 +9,16 @@ export function useInventario(filters = {}, pagination = { page: 1, limit: 10 })
   })
 }
 
+// Indicadores del módulo 06 (stock, cámaras, reingresos, alertas, actividad reciente)
+export function useInventarioResumen() {
+  return useQuery({
+    queryKey: ['inventario', 'resumen'],
+    queryFn: () => inventarioService.getResumen(),
+    select: (res) => res.data,
+    staleTime: 30_000,
+  })
+}
+
 export function useInventarioDetalle(id) {
   return useQuery({
     queryKey: ['inventario', 'detalle', id],

@@ -1,5 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
+const { AppError } = require('../../utils/AppError')
+const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 
 function generateCodigo() {
   const fecha = new Date()
@@ -25,10 +27,13 @@ function calculateEstadoSiguiente(estadoActual, accion) {
 
 async function listPedidos(query) {
   const { page, limit, skip } = getPagination(query)
-  const { estado, prioridad, clienteId, zonaId, fechaDesde, fechaHasta, search } = query
+  const { estado, prioridad, clienteId, zonaId, fechaDesde, fechaHasta, search, vista } = query
 
   const where = {}
 
+  // Pestañas del listado: pedidos en operación o ya concluidos
+  if (vista === 'activos') where.estado = { in: ESTADOS_ACTIVOS }
+  if (vista === 'historial') where.estado = { in: ESTADOS_HISTORIAL }
   if (estado) where.estado = estado
   if (prioridad) where.prioridad = prioridad
   if (clienteId) where.clienteId = clienteId
@@ -56,6 +61,22 @@ async function listPedidos(query) {
         cliente: { select: { id: true, codigo: true, razonSocial: true } },
         zona: { select: { id: true, codigo: true, nombre: true } },
         creadoPor: { select: { id: true, nombre: true, codigo: true } },
+        detalles: { select: { cantidad: true, unidad: true, producto: { select: { nombre: true } } } },
+        // Despacho vigente: repartidor y vehículo que lleva el pedido
+        despachos: {
+          where: { estado: { not: 'REPROGRAMADO' } },
+          select: {
+            despacho: {
+              select: {
+                id: true,
+                codigo: true,
+                estado: true,
+                repartidor: { select: { usuario: { select: { nombre: true } } } },
+                vehiculo: { select: { codigo: true, tipo: true, esTermico: true } },
+              },
+            },
+          },
+        },
         _count: { select: { detalles: true, despachos: true } },
       },
     }),
@@ -63,6 +84,149 @@ async function listPedidos(query) {
   ])
 
   return { data: pedidos, total, page, limit }
+}
+
+const ESTADOS_ACTIVOS = ['REGISTRADO', 'EN_PREPARACION', 'LISTO_PARA_DESPACHO', 'EN_RUTA', 'CON_INCIDENCIA']
+const ESTADOS_HISTORIAL = ['ENTREGADO', 'CERRADO', 'CANCELADO', 'DEVUELTO']
+const DIAS_EFECTIVIDAD = 30
+
+// Inicio del día en hora de Venezuela (UTC-4), desplazado n días
+function inicioDia(offsetDias = 0) {
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+  const d = new Date(`${hoy}T00:00:00-04:00`)
+  d.setDate(d.getDate() + offsetDias)
+  return d
+}
+
+const sumaCantidades = (detalles) => detalles.reduce((s, d) => s + Number(d.cantidad), 0)
+
+/**
+ * Indicadores del módulo 02 (tarjetas y paneles del Figma), todos calculados desde la BD.
+ */
+async function getResumenPedidos() {
+  const hoy = inicioDia(0)
+  const ayer = inicioDia(-1)
+  const desdeEfectividad = inicioDia(-DIAS_EFECTIVIDAD)
+
+  const [
+    enCola, registradosHoy, registradosAyer, enPreparacion, enRuta,
+    despachosActivos, finalizados, incidenciasPeriodo, ultimaCava, zonas, lotesCava, activos,
+  ] = await Promise.all([
+    prisma.pedido.count({ where: { estado: 'REGISTRADO' } }),
+    prisma.pedido.count({ where: { fechaHora: { gte: hoy } } }),
+    prisma.pedido.count({ where: { fechaHora: { gte: ayer, lt: hoy } } }),
+    prisma.pedido.findMany({ where: { estado: 'EN_PREPARACION' }, select: { detalles: { select: { cantidad: true, unidad: true } } } }),
+    prisma.pedido.count({ where: { estado: { in: ['EN_RUTA', 'CON_INCIDENCIA'] } } }),
+    prisma.despacho.findMany({
+      where: { estado: { in: ['PREPARANDO', 'EN_RUTA', 'CON_INCIDENCIA'] } },
+      select: {
+        codigo: true,
+        estado: true,
+        vehiculo: { select: { codigo: true, tipo: true, placa: true, capacidadCarga: true, unidadCapacidad: true, esTermico: true } },
+        repartidor: { select: { usuario: { select: { nombre: true } } } },
+        pedidos: { select: { pedido: { select: { detalles: { select: { cantidad: true } } } } } },
+      },
+    }),
+    prisma.pedido.groupBy({
+      by: ['estado'],
+      where: { estado: { in: ['ENTREGADO', 'CERRADO', 'DEVUELTO'] }, updatedAt: { gte: desdeEfectividad } },
+      _count: { _all: true },
+    }),
+    prisma.incidencia.count({ where: { fechaHora: { gte: desdeEfectividad } } }),
+    prisma.registroTemperatura.findFirst({
+      where: { tipoRegistro: 'CAVA' },
+      orderBy: { fechaHora: 'desc' },
+      include: { ubicacion: { select: { codigo: true, nombre: true } } },
+    }),
+    prisma.pedido.groupBy({
+      by: ['zonaId'],
+      where: { zonaId: { not: null }, fechaHora: { gte: desdeEfectividad } },
+      _count: { _all: true },
+      orderBy: { _count: { zonaId: 'desc' } },
+      take: 3,
+    }),
+    // FEFO: primer lote a vencer con stock en una cava
+    prisma.inventario.findFirst({
+      where: { stockActual: { gt: 0 }, ubicacion: { tipo: 'CAVA' }, lote: { estadoCalidad: 'DISPONIBLE' } },
+      orderBy: { lote: { fechaVencimiento: 'asc' } },
+      include: { lote: { include: { producto: { select: { nombre: true } } } }, ubicacion: { select: { nombre: true } } },
+    }),
+    prisma.pedido.count({ where: { estado: { in: ESTADOS_ACTIVOS } } }),
+  ])
+
+  const zonaInfo = await prisma.zonaDespacho.findMany({
+    where: { id: { in: zonas.map((z) => z.zonaId) } },
+    select: { id: true, nombre: true, municipio: true },
+  })
+
+  const conteoFinal = Object.fromEntries(finalizados.map((f) => [f.estado, f._count._all]))
+  const entregados = (conteoFinal.ENTREGADO || 0) + (conteoFinal.CERRADO || 0)
+  const totalFinalizados = entregados + (conteoFinal.DEVUELTO || 0)
+
+  const vehiculosEnUso = {}
+  for (const d of despachosActivos) {
+    const tipo = d.vehiculo?.tipo || 'SIN_VEHICULO'
+    vehiculosEnUso[tipo] = (vehiculosEnUso[tipo] || 0) + 1
+  }
+
+  return {
+    activos,
+    enCola: { total: enCola, registradosHoy, registradosAyer },
+    enPreparacion: {
+      total: enPreparacion.length,
+      cantidad: enPreparacion.reduce((s, p) => s + sumaCantidades(p.detalles), 0),
+      unidades: [...new Set(enPreparacion.flatMap((p) => p.detalles.map((d) => d.unidad)))],
+    },
+    enRuta: { total: enRuta, vehiculosEnUso },
+    efectividad: {
+      dias: DIAS_EFECTIVIDAD,
+      porcentaje: totalFinalizados ? Math.round((entregados / totalFinalizados) * 1000) / 10 : null,
+      entregados,
+      devueltos: conteoFinal.DEVUELTO || 0,
+      incidencias: incidenciasPeriodo,
+    },
+    cava: ultimaCava
+      ? {
+          ubicacion: ultimaCava.ubicacion?.nombre || 'Cava',
+          codigo: ultimaCava.ubicacion?.codigo,
+          temperaturaC: Number(ultimaCava.temperaturaC),
+          fechaHora: ultimaCava.fechaHora,
+          conforme: Number(ultimaCava.temperaturaC) <= LIMITE_CRITICO_C,
+          limiteCriticoC: LIMITE_CRITICO_C,
+        }
+      : null,
+    capacidad: despachosActivos
+      .filter((d) => d.vehiculo)
+      .map((d) => {
+        const carga = d.pedidos.reduce((s, dp) => s + sumaCantidades(dp.pedido.detalles), 0)
+        const capacidad = d.vehiculo.capacidadCarga ? Number(d.vehiculo.capacidadCarga) : null
+        return {
+          despacho: d.codigo,
+          estado: d.estado,
+          vehiculo: d.vehiculo.codigo,
+          tipo: d.vehiculo.tipo,
+          esTermico: d.vehiculo.esTermico,
+          repartidor: d.repartidor?.usuario?.nombre || null,
+          carga,
+          capacidad,
+          unidadCapacidad: d.vehiculo.unidadCapacidad,
+          porcentaje: capacidad ? Math.round((carga / capacidad) * 100) : null,
+        }
+      }),
+    zonasFrecuentes: zonas.map((z) => {
+      const info = zonaInfo.find((x) => x.id === z.zonaId)
+      return { zonaId: z.zonaId, nombre: info?.nombre, municipio: info?.municipio, pedidos: z._count._all }
+    }),
+    loteVigente: lotesCava
+      ? {
+          codigo: lotesCava.lote.codigo,
+          producto: lotesCava.lote.producto?.nombre,
+          fechaVencimiento: lotesCava.lote.fechaVencimiento,
+          ubicacion: lotesCava.ubicacion?.nombre,
+          stock: Number(lotesCava.stockActual),
+        }
+      : null,
+  }
 }
 
 async function getPedidoById(id) {
@@ -92,7 +256,7 @@ async function getPedidoById(id) {
       eventos: { orderBy: { fechaHora: 'desc' }, take: 20 },
     },
   })
-  if (!pedido) throw new Error('Pedido no encontrado')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
   return pedido
 }
 
@@ -100,13 +264,13 @@ async function createPedido(data, usuarioId) {
   const { clienteId, items, ...rest } = data
 
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
-  if (!cliente) throw new Error('Cliente no encontrado')
-  if (!cliente.activo) throw new Error('Cliente inactivo')
+  if (!cliente) throw new AppError('Cliente no encontrado', 404)
+  if (!cliente.activo) throw new AppError('Cliente inactivo', 400)
 
   for (const item of items) {
     const producto = await prisma.producto.findUnique({ where: { id: item.productoId } })
-    if (!producto) throw new Error(`Producto ${item.productoId} no encontrado`)
-    if (!producto.activo) throw new Error(`Producto ${producto.nombre} inactivo`)
+    if (!producto) throw new AppError(`Producto ${item.productoId} no encontrado`, 404)
+    if (!producto.activo) throw new AppError(`Producto ${producto.nombre} inactivo`, 400)
   }
 
   const codigo = generateCodigo()
@@ -153,10 +317,10 @@ async function createPedido(data, usuarioId) {
 
 async function updatePedido(id, data) {
   const pedido = await prisma.pedido.findUnique({ where: { id } })
-  if (!pedido) throw new Error('Pedido no encontrado')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
 
   if (['ENTREGADO', 'CERRADO', 'CANCELADO', 'DEVUELTO'].includes(pedido.estado)) {
-    throw new Error('No se puede modificar un pedido en estado final')
+    throw new AppError('No se puede modificar un pedido en estado final', 400)
   }
 
   const { items, ...rest } = data
@@ -188,7 +352,7 @@ async function updatePedido(id, data) {
 
 async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
   const pedido = await prisma.pedido.findUnique({ where: { id } })
-  if (!pedido) throw new Error('Pedido no encontrado')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
 
   const estadoActual = pedido.estado
 
@@ -203,7 +367,7 @@ async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
   }
 
   if (!transicionesValidas[estadoActual]?.includes(nuevoEstado)) {
-    throw new Error(`Transición inválida: ${estadoActual} → ${nuevoEstado}`)
+    throw new AppError(`Transición inválida: ${estadoActual} → ${nuevoEstado}`, 400)
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -235,8 +399,8 @@ async function prepararPedido(id, usuarioId) {
     where: { id },
     include: { detalles: { include: { producto: true } } },
   })
-  if (!pedido) throw new Error('Pedido no encontrado')
-  if (pedido.estado !== 'REGISTRADO') throw new Error('Solo se puede preparar desde REGISTRADO')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
+  if (pedido.estado !== 'REGISTRADO') throw new AppError('Solo se puede preparar desde REGISTRADO', 400)
 
   for (const detalle of pedido.detalles) {
     if (detalle.producto.esPerecedero) {
@@ -244,8 +408,9 @@ async function prepararPedido(id, usuarioId) {
         where: { lote: { productoId: detalle.productoId }, stockActual: { gt: 0 } },
         _sum: { stockActual: true },
       })
-      if (!stock._sum.stockActual || stock._sum.stockActual < detalle.cantidad) {
-        throw new Error(`Stock insuficiente para ${detalle.producto.nombre}`)
+      // Number(): los Decimal de Prisma comparados con < se comparan como texto ("235" < "5")
+      if (!stock._sum.stockActual || Number(stock._sum.stockActual) < Number(detalle.cantidad)) {
+        throw new AppError(`Stock insuficiente para ${detalle.producto.nombre}`, 400)
       }
     }
   }
@@ -255,20 +420,20 @@ async function prepararPedido(id, usuarioId) {
 
 async function listoParaDespacho(id, usuarioId, itemsPreparados) {
   const pedido = await prisma.pedido.findUnique({ where: { id } })
-  if (!pedido) throw new Error('Pedido no encontrado')
-  if (pedido.estado !== 'EN_PREPARACION') throw new Error('Solo desde EN_PREPARACION')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
+  if (pedido.estado !== 'EN_PREPARACION') throw new AppError('Solo desde EN_PREPARACION', 400)
 
   await prisma.$transaction(async (tx) => {
     if (itemsPreparados && itemsPreparados.length > 0) {
       for (const item of itemsPreparados) {
         const lote = await tx.lote.findUnique({ where: { id: item.loteId } })
-        if (!lote) throw new Error(`Lote ${item.loteId} no encontrado`)
+        if (!lote) throw new AppError(`Lote ${item.loteId} no encontrado`, 404)
 
         const inventario = await tx.inventario.findUnique({
           where: { loteId_ubicacionId: { loteId: item.loteId, ubicacionId: item.ubicacionId } },
         })
-        if (!inventario || inventario.stockActual < item.cantidad) {
-          throw new Error(`Stock insuficiente en lote ${lote.codigo}`)
+        if (!inventario || Number(inventario.stockActual) < Number(item.cantidad)) {
+          throw new AppError(`Stock insuficiente en lote ${lote.codigo}`, 400)
         }
 
         await tx.inventario.update({
@@ -316,10 +481,10 @@ async function listoParaDespacho(id, usuarioId, itemsPreparados) {
 
 async function deletePedido(id) {
   const pedido = await prisma.pedido.findUnique({ where: { id } })
-  if (!pedido) throw new Error('Pedido no encontrado')
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
 
   if (pedido.estado !== 'REGISTRADO' && pedido.estado !== 'CANCELADO') {
-    throw new Error('Solo se puede eliminar en REGISTRADO o CANCELADO')
+    throw new AppError('Solo se puede eliminar en REGISTRADO o CANCELADO', 400)
   }
 
   await prisma.$transaction(async (tx) => {
@@ -332,6 +497,7 @@ async function deletePedido(id) {
 }
 
 module.exports = {
+  getResumenPedidos,
   listPedidos,
   getPedidoById,
   createPedido,

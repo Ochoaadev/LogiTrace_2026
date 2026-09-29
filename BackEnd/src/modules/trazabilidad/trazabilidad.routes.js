@@ -2,6 +2,10 @@ const express = require('express')
 const router = express.Router()
 
 const {
+  buscarExpedientesValidation,
+  pedidoIdParam,
+  exportCsvValidation,
+  registrarTemperaturaValidation,
   listTrazabilidadValidation,
   getTrazabilidadByPedidoValidation,
   getTrazabilidadByDespachoValidation,
@@ -19,6 +23,24 @@ router.get(
   listTrazabilidadValidation,
   validationMiddleware,
   trazabilidadController.listTrazabilidad
+)
+
+const CONSULTA = roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR')
+const EXPORTA = roleMiddleware('ADMINISTRADOR', 'SUPERVISOR')
+
+// Expedientes (Fase 7)
+router.get('/expedientes', CONSULTA, buscarExpedientesValidation, validationMiddleware, trazabilidadController.buscarExpedientes)
+router.get('/pedido/:id/expediente', CONSULTA, pedidoIdParam, validationMiddleware, trazabilidadController.getExpediente)
+router.get('/pedido/:id/export/pdf', EXPORTA, pedidoIdParam, validationMiddleware, trazabilidadController.exportPdf)
+router.get('/export/csv', EXPORTA, exportCsvValidation, validationMiddleware, trazabilidadController.exportCsv)
+
+// Registro manual de temperatura (cava, despacho o devolución); el repartidor lo toma en ruta
+router.post(
+  '/temperaturas',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  registrarTemperaturaValidation,
+  validationMiddleware,
+  trazabilidadController.registrarTemperatura
 )
 
 router.get(

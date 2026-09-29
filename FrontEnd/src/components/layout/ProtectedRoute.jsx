@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
 
 function ProtectedRoute({ allowedPermissions = [], allowedRoles = [] }) {
-  const { isAuthenticated, loading, user } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
   const { can, hasRole } = usePermissions()
   const location = useLocation()
 

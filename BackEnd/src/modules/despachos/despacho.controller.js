@@ -32,6 +32,15 @@ async function createDespacho(req, res, next) {
   }
 }
 
+async function agregarPedido(req, res, next) {
+  try {
+    const despacho = await despachoService.agregarPedido(req.params.id, req.body.pedidoId, req.user.sub)
+    return success(res, despacho, 'Pedido agregado al despacho')
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function updateDespacho(req, res, next) {
   try {
     const despacho = await despachoService.updateDespacho(req.params.id, req.body)
@@ -89,10 +98,21 @@ async function getFlujoOperativo(req, res, next) {
   }
 }
 
+async function getResumenDespachos(req, res, next) {
+  try {
+    const resumen = await despachoService.getResumenDespachos()
+    return success(res, resumen, 'Resumen de despachos obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
+  getResumenDespachos,
   listDespachos,
   getDespachoById,
   createDespacho,
+  agregarPedido,
   updateDespacho,
   changeEstado,
   updateUbicacion,

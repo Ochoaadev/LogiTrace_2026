@@ -59,6 +59,15 @@ async function registrarMovimiento(req, res, next) {
   }
 }
 
+async function ajustarStock(req, res, next) {
+  try {
+    const movimiento = await inventarioService.ajustarStock(req.params.id, req.body, req.user.sub)
+    return success(res, movimiento, 'Stock ajustado')
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function listMovimientos(req, res, next) {
   try {
     const result = await inventarioService.listMovimientos(req.query)
@@ -101,14 +110,27 @@ async function getResumenInventario(req, res, next) {
 
 async function getLoteDetalle(req, res, next) {
   try {
-    const inventario = await inventarioService.getInventarioById(req.params.id)
-    return success(res, inventario, 'Detalle de lote obtenido')
+    // Antes buscaba un registro de Inventario con el id del lote y respondía 404
+    const lote = await inventarioService.getLoteDetalle(req.params.id)
+    return success(res, lote, 'Detalle de lote obtenido')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function exportKardexCsv(req, res, next) {
+  try {
+    const csv = await inventarioService.exportKardexCsv(req.query)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="kardex-${new Date().toISOString().slice(0, 10)}.csv"`)
+    return res.send(csv)
   } catch (err) {
     next(err)
   }
 }
 
 module.exports = {
+  exportKardexCsv,
   listInventario,
   getInventarioById,
   getLoteDetalle,
@@ -116,6 +138,7 @@ module.exports = {
   updateInventario,
   deleteInventario,
   registrarMovimiento,
+  ajustarStock,
   listMovimientos,
   getMovimientoById,
   getStockBajo,

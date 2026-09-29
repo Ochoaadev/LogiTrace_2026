@@ -44,7 +44,7 @@ const changeEstadoIncidenciaValidation = [
   param('id').isUUID().withMessage('ID inválido'),
   body('estado')
     .notEmpty().withMessage('El estado es obligatorio')
-    .isIn(['ABIERTA', 'EN_GESTION', 'RESUELTA', 'CERRADA', 'CANCELADA']).withMessage('Estado inválido'),
+    .isIn(['REPORTADA', 'EN_REVISION', 'EN_ATENCION', 'RESUELTA', 'CERRADA', 'CANCELADA']).withMessage('Estado inválido'),
   body('decisionOperativa')
     .optional()
     .isLength({ max: 500 }).withMessage('Decisión operativa muy larga'),
@@ -56,12 +56,13 @@ const changeEstadoIncidenciaValidation = [
 const listIncidenciasValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('Página inválida'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Límite 1-100'),
-  query('estado').optional().isIn(['ABIERTA', 'EN_GESTION', 'RESUELTA', 'CERRADA', 'CANCELADA']).withMessage('Estado inválido'),
+  query('estado').optional().isIn(['REPORTADA', 'EN_REVISION', 'EN_ATENCION', 'RESUELTA', 'CERRADA', 'CANCELADA']).withMessage('Estado inválido'),
   query('tipoIncidenciaId').optional().isUUID().withMessage('Tipo inválido'),
   query('despachoPedidoId').optional().isUUID().withMessage('Despacho-pedido inválido'),
   query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
   query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
   query('search').optional().isString().withMessage('Búsqueda inválida'),
+  query('abiertas').optional().isBoolean().withMessage('abiertas debe ser true/false'),
 ]
 
 module.exports = {
