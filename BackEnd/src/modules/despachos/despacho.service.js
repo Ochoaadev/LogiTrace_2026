@@ -2,6 +2,7 @@ const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
+const { vincularLotesParada } = require('../inventario/asignacionLotes')
 
 function generateCodigo() {
   const fecha = new Date()
@@ -269,7 +270,7 @@ async function createDespacho(data, usuarioId) {
     })
 
     for (const p of pedidos) {
-      await tx.despachoPedido.create({
+      const parada = await tx.despachoPedido.create({
         data: {
           despachoId: nuevo.id,
           pedidoId: p.pedidoId,
@@ -277,6 +278,8 @@ async function createDespacho(data, usuarioId) {
           estado: 'PENDIENTE',
         },
       })
+      // Lotes que salieron de la cava al preparar el pedido
+      await vincularLotesParada(tx, parada.id, p.pedidoId)
 
       await tx.pedido.update({
         where: { id: p.pedidoId },
@@ -621,9 +624,10 @@ async function agregarPedido(despachoId, pedidoId, usuarioId) {
   const ordenParada = despacho.pedidos.reduce((max, dp) => Math.max(max, dp.ordenParada), 0) + 1
 
   await prisma.$transaction(async (tx) => {
-    await tx.despachoPedido.create({
+    const parada = await tx.despachoPedido.create({
       data: { despachoId, pedidoId, ordenParada, estado: 'PENDIENTE' },
     })
+    await vincularLotesParada(tx, parada.id, pedidoId)
 
     // Mismo efecto sobre el pedido que al crearlo junto con el despacho (createDespacho)
     await tx.pedido.update({

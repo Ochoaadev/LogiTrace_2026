@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { asignarLotesFefo, revertirSalidasPedido } = require('../inventario/asignacionLotes')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 
 function generateCodigo() {
@@ -375,6 +376,11 @@ async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
 
     const p = await tx.pedido.update({ where: { id }, data })
 
+    // Un pedido cancelado después de prepararse devuelve su mercancía a la cava
+    if (nuevoEstado === 'CANCELADO' && estadoActual === 'LISTO_PARA_DESPACHO') {
+      await revertirSalidasPedido(tx, pedido, usuarioId)
+    }
+
     await tx.eventoTrazabilidad.create({
       data: {
         pedidoId: id,
@@ -402,59 +408,50 @@ async function prepararPedido(id, usuarioId) {
   if (!pedido) throw new AppError('Pedido no encontrado', 404)
   if (pedido.estado !== 'REGISTRADO') throw new AppError('Solo se puede preparar desde REGISTRADO', 400)
 
-  for (const detalle of pedido.detalles) {
-    if (detalle.producto.esPerecedero) {
-      const stock = await prisma.inventario.aggregate({
-        where: { lote: { productoId: detalle.productoId }, stockActual: { gt: 0 } },
-        _sum: { stockActual: true },
-      })
-      // Number(): los Decimal de Prisma comparados con < se comparan como texto ("235" < "5")
-      if (!stock._sum.stockActual || Number(stock._sum.stockActual) < Number(detalle.cantidad)) {
-        throw new AppError(`Stock insuficiente para ${detalle.producto.nombre}`, 400)
-      }
-    }
-  }
+  // Verifica que haya stock despachable (lotes disponibles en cava); antes sumaba cualquier
+  // ubicación, incluida la cuarentena. La salida real se registra en "listo para despacho".
+  await asignarLotesFefo(prisma, pedido)
 
   return changeEstado(id, 'EN_PREPARACION', usuarioId, 'Preparación iniciada')
 }
 
 async function listoParaDespacho(id, usuarioId, itemsPreparados) {
-  const pedido = await prisma.pedido.findUnique({ where: { id } })
+  const pedido = await prisma.pedido.findUnique({ where: { id }, include: { detalles: { include: { producto: true } } } })
   if (!pedido) throw new AppError('Pedido no encontrado', 404)
   if (pedido.estado !== 'EN_PREPARACION') throw new AppError('Solo desde EN_PREPARACION', 400)
 
   await prisma.$transaction(async (tx) => {
-    if (itemsPreparados && itemsPreparados.length > 0) {
-      for (const item of itemsPreparados) {
-        const lote = await tx.lote.findUnique({ where: { id: item.loteId } })
-        if (!lote) throw new AppError(`Lote ${item.loteId} no encontrado`, 404)
+    // Sin lotes indicados (flujo de la interfaz) se asignan por FEFO desde la cava
+    const items = itemsPreparados?.length ? itemsPreparados : await asignarLotesFefo(tx, pedido)
+    for (const item of items) {
+      const lote = await tx.lote.findUnique({ where: { id: item.loteId } })
+      if (!lote) throw new AppError(`Lote ${item.loteId} no encontrado`, 404)
 
-        const inventario = await tx.inventario.findUnique({
-          where: { loteId_ubicacionId: { loteId: item.loteId, ubicacionId: item.ubicacionId } },
-        })
-        if (!inventario || Number(inventario.stockActual) < Number(item.cantidad)) {
-          throw new AppError(`Stock insuficiente en lote ${lote.codigo}`, 400)
-        }
-
-        await tx.inventario.update({
-          where: { loteId_ubicacionId: { loteId: item.loteId, ubicacionId: item.ubicacionId } },
-          data: { stockActual: { decrement: item.cantidad } },
-        })
-
-        await tx.movimientoInventario.create({
-          data: {
-            tipo: 'SALIDA',
-            loteId: item.loteId,
-            ubicacionOrigenId: item.ubicacionId,
-            cantidad: item.cantidad,
-            unidad: item.unidad,
-            usuarioId,
-            referenciaTipo: 'Pedido',
-            referenciaId: id,
-            observaciones: `Preparación pedido ${pedido.codigo}`,
-          },
-        })
+      const inventario = await tx.inventario.findUnique({
+        where: { loteId_ubicacionId: { loteId: item.loteId, ubicacionId: item.ubicacionId } },
+      })
+      if (!inventario || Number(inventario.stockActual) < Number(item.cantidad)) {
+        throw new AppError(`Stock insuficiente en lote ${lote.codigo}`, 400)
       }
+
+      await tx.inventario.update({
+        where: { loteId_ubicacionId: { loteId: item.loteId, ubicacionId: item.ubicacionId } },
+        data: { stockActual: { decrement: item.cantidad } },
+      })
+
+      await tx.movimientoInventario.create({
+        data: {
+          tipo: 'SALIDA',
+          loteId: item.loteId,
+          ubicacionOrigenId: item.ubicacionId,
+          cantidad: item.cantidad,
+          unidad: item.unidad,
+          usuarioId,
+          referenciaTipo: 'Pedido',
+          referenciaId: id,
+          observaciones: `Preparación pedido ${pedido.codigo}`,
+        },
+      })
     }
 
     await tx.pedido.update({
