@@ -448,32 +448,155 @@ async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {
   return getDespachoById(updated.id)
 }
 
-async function updateUbicacion(id, { latitud, longitud, precisionMetros, velocidadKmh }, usuarioId) {
+// ------------------------------------------------------------------ GPS y ruta del repartidor
+
+const ESTADOS_RUTA_ACTIVA = ['PREPARANDO', 'EN_RUTA', 'CON_INCIDENCIA']
+const PARADAS_POR_ENTREGAR = ['EN_RUTA', 'EN_ESPERA']
+
+// Un repartidor solo opera su propio despacho; el personal de planta puede operar cualquiera
+async function verificarAcceso(despacho, user) {
+  if (user.rol !== 'REPARTIDOR') return
+  const repartidor = await prisma.repartidor.findUnique({ where: { usuarioId: user.sub } })
+  if (!repartidor || repartidor.id !== despacho.repartidorId) {
+    throw new AppError('Este despacho no está asignado a usted', 403)
+  }
+}
+
+/**
+ * Posición GPS enviada por el teléfono del repartidor. Antes no validaba que el despacho fuera
+ * suyo y creaba un evento de trazabilidad por cada posición (un recorrido de 2 h con envíos cada
+ * 30 s llenaba el expediente con 240 eventos); el recorrido ya se ve completo en el mapa.
+ */
+async function updateUbicacion(id, { latitud, longitud, precisionMetros, velocidadKmh }, user) {
   const despacho = await prisma.despacho.findUnique({ where: { id } })
   if (!despacho) throw new AppError('Despacho no encontrado', 404)
-  if (despacho.estado !== 'EN_RUTA') throw new AppError('Solo se puede actualizar ubicación en EN_RUTA', 400)
+  await verificarAcceso(despacho, user)
+  if (!['EN_RUTA', 'CON_INCIDENCIA'].includes(despacho.estado)) {
+    throw new AppError('Solo se registra la ubicación de un despacho en ruta', 400)
+  }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.ubicacionGPS.create({
-      data: {
-        despachoId: id,
-        repartidorId: despacho.repartidorId,
-        latitud,
-        longitud,
-        precisionMetros,
-        velocidadKmh,
+  const punto = await prisma.ubicacionGPS.create({
+    data: {
+      despachoId: id,
+      repartidorId: despacho.repartidorId,
+      latitud,
+      longitud,
+      precisionMetros: precisionMetros ?? null,
+      velocidadKmh: velocidadKmh ?? null,
+    },
+  })
+  return { id: punto.id, fechaHora: punto.fechaHora }
+}
+
+/** Despacho activo del repartidor autenticado, con sus paradas y el recorrido registrado. */
+async function getMiRuta(usuarioId) {
+  const repartidor = await prisma.repartidor.findUnique({
+    where: { usuarioId },
+    include: { usuario: { select: { nombre: true } } },
+  })
+  if (!repartidor) throw new AppError('Su cuenta no está registrada como repartidor', 403)
+
+  const inicioDia = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' }) + 'T00:00:00-04:00')
+  const [despacho, entregasHoy, tiposIncidencia] = await Promise.all([
+    prisma.despacho.findFirst({
+      where: { repartidorId: repartidor.id, estado: { in: ESTADOS_RUTA_ACTIVA } },
+      orderBy: { codigo: 'desc' },
+      include: {
+        vehiculo: { select: { codigo: true, placa: true, tipo: true, esTermico: true } },
+        ruta: { select: { nombre: true } },
+        pedidos: {
+          orderBy: { ordenParada: 'asc' },
+          include: {
+            pedido: {
+              select: {
+                id: true, codigo: true, direccionEntrega: true, referenciaEntrega: true, telefonoContacto: true,
+                latitudEntrega: true, longitudEntrega: true, observaciones: true,
+                cliente: { select: { razonSocial: true, telefono: true } },
+                detalles: { select: { cantidad: true, unidad: true, producto: { select: { nombre: true } } } },
+              },
+            },
+            incidencias: { where: { estado: { in: ['REPORTADA', 'EN_REVISION', 'EN_ATENCION'] } }, select: { id: true, codigo: true, estado: true } },
+          },
+        },
+        ubicacionesGPS: { orderBy: { fechaHora: 'desc' }, take: 200, select: { latitud: true, longitud: true, fechaHora: true, velocidadKmh: true } },
       },
-    })
+    }),
+    prisma.despachoPedido.count({ where: { despacho: { repartidorId: repartidor.id }, estado: 'ENTREGADO', horaEntrega: { gte: inicioDia } } }),
+    prisma.tipoIncidencia.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true } }),
+  ])
 
+  return {
+    repartidor: { id: repartidor.id, nombre: repartidor.usuario.nombre, estado: repartidor.estado },
+    entregasHoy,
+    tiposIncidencia,
+    despacho: despacho && {
+      ...despacho,
+      ubicacionesGPS: despacho.ubicacionesGPS.reverse(),
+    },
+  }
+}
+
+/** El repartidor (o el despachador) registra la salida de planta. */
+async function iniciarRecorrido(id, user) {
+  const despacho = await prisma.despacho.findUnique({ where: { id } })
+  if (!despacho) throw new AppError('Despacho no encontrado', 404)
+  await verificarAcceso(despacho, user)
+  if (despacho.estado !== 'PREPARANDO') throw new AppError('El recorrido solo se inicia desde "preparando carga"', 400)
+  return changeEstado(id, 'EN_RUTA', user.sub, 'Salida de planta registrada por el repartidor')
+}
+
+/**
+ * Entrega de una parada con la posición GPS del momento. Al cerrarse la última parada abierta
+ * el despacho se finaliza y el repartidor vuelve a quedar disponible.
+ */
+async function registrarEntrega(id, paradaId, { receptor, observaciones, latitud, longitud, precisionMetros }, user) {
+  const despacho = await prisma.despacho.findUnique({ where: { id }, include: { pedidos: true } })
+  if (!despacho) throw new AppError('Despacho no encontrado', 404)
+  await verificarAcceso(despacho, user)
+  if (despacho.estado !== 'EN_RUTA') throw new AppError('El despacho no está en ruta', 400)
+  const parada = despacho.pedidos.find((p) => p.id === paradaId)
+  if (!parada) throw new AppError('La parada no pertenece a este despacho', 404)
+  if (!PARADAS_POR_ENTREGAR.includes(parada.estado)) {
+    throw new AppError(`La parada no se puede entregar (estado: ${parada.estado})`, 400)
+  }
+
+  const ahora = new Date()
+  await prisma.$transaction(async (tx) => {
+    await tx.despachoPedido.update({
+      where: { id: paradaId },
+      data: { estado: 'ENTREGADO', horaEntrega: ahora, horaLlegada: parada.horaLlegada || ahora, receptor: receptor.trim(), observaciones: observaciones?.trim() || parada.observaciones },
+    })
+    await tx.pedido.update({ where: { id: parada.pedidoId }, data: { estado: 'ENTREGADO' } })
+    if (latitud !== undefined && longitud !== undefined) {
+      await tx.ubicacionGPS.create({
+        data: { despachoId: id, repartidorId: despacho.repartidorId, latitud, longitud, precisionMetros: precisionMetros ?? null, fechaHora: ahora },
+      })
+    }
     await tx.eventoTrazabilidad.create({
       data: {
-        usuarioId,
-        tipoEvento: 'UBICACION_ACTUALIZADA',
-        entidadTipo: 'Despacho',
-        entidadId: id,
-        descripcion: `Ubicación actualizada: ${latitud}, ${longitud}`,
+        pedidoId: parada.pedidoId,
+        usuarioId: user.sub,
+        tipoEvento: 'ENTREGA_REGISTRADA',
+        entidadTipo: 'DespachoPedido',
+        entidadId: paradaId,
+        estadoAnterior: parada.estado,
+        estadoNuevo: 'ENTREGADO',
+        descripcion: `Entregado a ${receptor.trim()} (parada ${parada.ordenParada} del despacho ${despacho.codigo})`
+          + (latitud !== undefined ? ` · GPS ${Number(latitud).toFixed(5)}, ${Number(longitud).toFixed(5)}` : ''),
       },
     })
+
+    const abiertas = despacho.pedidos.filter((p) => p.id !== paradaId && ['PENDIENTE', 'EN_RUTA', 'EN_ESPERA', 'CON_INCIDENCIA'].includes(p.estado))
+    if (!abiertas.length) {
+      await tx.despacho.update({ where: { id }, data: { estado: 'FINALIZADO', fechaHoraCierre: ahora } })
+      if (despacho.repartidorId) await tx.repartidor.update({ where: { id: despacho.repartidorId }, data: { estado: 'DISPONIBLE' } })
+      await tx.eventoTrazabilidad.create({
+        data: {
+          usuarioId: user.sub, tipoEvento: 'ENTREGA_REGISTRADA', entidadTipo: 'Despacho', entidadId: id,
+          estadoAnterior: 'EN_RUTA', estadoNuevo: 'FINALIZADO', descripcion: `Despacho ${despacho.codigo} finalizado: todas las paradas cerradas`,
+        },
+      })
+    }
   })
 
   return getDespachoById(id)
@@ -661,6 +784,9 @@ module.exports = {
   updateDespacho,
   changeEstado,
   updateUbicacion,
+  getMiRuta,
+  iniciarRecorrido,
+  registrarEntrega,
   updatePedidosOrden,
   deleteDespacho,
   getFlujoOperativo,

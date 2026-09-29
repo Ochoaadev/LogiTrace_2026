@@ -33,6 +33,10 @@ export const TRANSICIONES_DESPACHO = {
 }
 
 // Texto del botón para pasar a cada estado
+// Texto del botón según el estado actual: volver a ruta desde una incidencia no es una nueva salida
+export const accionDespacho = (destino, actual) =>
+  destino === 'EN_RUTA' && actual === 'CON_INCIDENCIA' ? 'Reanudar ruta' : ACCION_DESPACHO[destino]
+
 export const ACCION_DESPACHO = {
   PREPARANDO: 'Iniciar preparación',
   EN_RUTA: 'Registrar salida a ruta',

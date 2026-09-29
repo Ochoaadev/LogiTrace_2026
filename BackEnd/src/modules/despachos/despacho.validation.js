@@ -68,20 +68,27 @@ const changeEstadoDespachoValidation = [
     .isString().withMessage('Observaciones inválidas'),
 ]
 
+// Coordenadas dentro de rango (antes solo se exigía que fueran decimales)
+const campoCoordenada = (campo, obligatoria) =>
+  obligatoria ? body(campo).exists({ values: 'null' }).withMessage(`${campo} obligatoria`) : body(campo).optional({ values: 'null' })
+const coordenadas = (obligatorias) => [
+  campoCoordenada('latitud', obligatorias).isFloat({ min: -90, max: 90 }).withMessage('Latitud fuera de rango').toFloat(),
+  campoCoordenada('longitud', obligatorias).isFloat({ min: -180, max: 180 }).withMessage('Longitud fuera de rango').toFloat(),
+  body('precisionMetros').optional({ values: 'null' }).isFloat({ min: 0, max: 100000 }).withMessage('Precisión inválida').toFloat(),
+]
+
 const updateUbicacionValidation = [
   param('id').isUUID().withMessage('ID inválido'),
-  body('latitud')
-    .notEmpty().withMessage('Latitud obligatoria')
-    .isDecimal().withMessage('Latitud inválida'),
-  body('longitud')
-    .notEmpty().withMessage('Longitud obligatoria')
-    .isDecimal().withMessage('Longitud inválida'),
-  body('precisionMetros')
-    .optional()
-    .isDecimal().withMessage('Precisión inválida'),
-  body('velocidadKmh')
-    .optional()
-    .isDecimal().withMessage('Velocidad inválida'),
+  ...coordenadas(true),
+  body('velocidadKmh').optional({ values: 'null' }).isFloat({ min: 0, max: 300 }).withMessage('Velocidad inválida').toFloat(),
+]
+
+const entregaValidation = [
+  param('id').isUUID().withMessage('ID inválido'),
+  param('paradaId').isUUID().withMessage('Parada inválida'),
+  body('receptor').trim().notEmpty().withMessage('Indique quién recibe el pedido').isLength({ max: 120 }).withMessage('Nombre del receptor muy largo'),
+  body('observaciones').optional().isString().isLength({ max: 500 }).withMessage('Observaciones muy largas'),
+  ...coordenadas(false),
 ]
 
 const listDespachosValidation = [
@@ -106,6 +113,7 @@ const agregarPedidoValidation = [
 ]
 
 module.exports = {
+  entregaValidation,
   agregarPedidoValidation,
   createDespachoValidation,
   updateDespachoValidation,

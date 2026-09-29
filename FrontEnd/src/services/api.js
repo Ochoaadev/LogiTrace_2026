@@ -1,7 +1,11 @@
 import axios from 'axios'
 import { sesion } from '@/lib/sesion'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+// En HTTPS (modo móvil) la API va por el proxy de Vite (/api): una página HTTPS no puede llamar
+// a un backend HTTP directo (el navegador bloquea el contenido mixto)
+const API_URL = window.location.protocol === 'https:'
+  ? '/api'
+  : import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 const api = axios.create({
   baseURL: API_URL,

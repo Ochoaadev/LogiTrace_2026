@@ -8,7 +8,9 @@ const {
   changeEstadoDespachoValidation,
   updateUbicacionValidation,
   agregarPedidoValidation,
+  entregaValidation,
 } = require('./despacho.validation')
+const { param } = require('express-validator')
 const { validationMiddleware } = require('../../middlewares/validationMiddleware')
 const { authMiddleware } = require('../../middlewares/authMiddleware')
 const { roleMiddleware } = require('../../middlewares/roleMiddleware')
@@ -28,6 +30,23 @@ router.get(
   '/resumen',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   despachoController.getResumenDespachos
+)
+
+// Ruta del repartidor (vista móvil "Mi ruta"): su despacho activo, salida y entregas con GPS
+router.get('/mi-ruta', roleMiddleware('REPARTIDOR'), despachoController.getMiRuta)
+router.post(
+  '/:id/iniciar-recorrido',
+  roleMiddleware('REPARTIDOR', 'ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  param('id').isUUID().withMessage('ID inválido'),
+  validationMiddleware,
+  despachoController.iniciarRecorrido
+)
+router.post(
+  '/:id/paradas/:paradaId/entrega',
+  roleMiddleware('REPARTIDOR', 'ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  entregaValidation,
+  validationMiddleware,
+  despachoController.registrarEntrega
 )
 
 router.get(

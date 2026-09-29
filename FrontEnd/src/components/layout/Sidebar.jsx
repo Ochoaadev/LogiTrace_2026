@@ -12,13 +12,15 @@ import {
   ChartColumn,
   Settings,
   ChevronDown,
+  Navigation,
 } from 'lucide-react'
 import { usePermissions } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
 
 // Numeración fija del Figma (01–10): no cambia aunque el rol oculte algún módulo.
 const MODULES = [
-  { n: '01', to: '/dashboard', label: 'Inicio / Dashboard', icon: LayoutDashboard, permission: 'pedidos.list' },
+  { n: '01', to: '/dashboard', label: 'Inicio / Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+  { n: '03', to: '/mi-ruta', label: 'Mi ruta (GPS)', icon: Navigation, permission: 'ruta.propia' },
   { n: '02', to: '/pedidos', label: 'Pedidos', icon: ReceiptText, permission: 'pedidos.list' },
   { n: '03', to: '/despachos', label: 'Despachos', icon: Truck, permission: 'despachos.list' },
   { n: '04', to: '/incidencias', label: 'Incidencias', icon: TriangleAlert, permission: 'incidencias.list' },

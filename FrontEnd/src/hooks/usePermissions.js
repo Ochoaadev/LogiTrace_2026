@@ -18,6 +18,12 @@ const PERMISSIONS = {
   'pedidos.change_priority': ['ADMINISTRADOR', 'SUPERVISOR'],
   'pedidos.export': ['ADMINISTRADOR', 'SUPERVISOR'],
 
+  // Panel de inicio con indicadores (personal de planta)
+  'dashboard.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
+
+  // Ruta propia del repartidor (vista móvil con GPS)
+  'ruta.propia': ['REPARTIDOR'],
+
   // Despachos
   'despachos.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
   'despachos.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],

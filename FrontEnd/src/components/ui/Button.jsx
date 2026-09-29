@@ -32,9 +32,16 @@ const buttonVariants = cva(
 
 export const Button = React.forwardRef(
   ({ className, variant, size, asChild = false, children, disabled, loading, ...props }, ref) => {
-    const Comp = asChild ? Slot : 'button'
+    // Con asChild (p. ej. un enlace con aspecto de botón) Slot exige un único hijo: sin indicador de carga
+    if (asChild) {
+      return (
+        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
+          {children}
+        </Slot>
+      )
+    }
     return (
-      <Comp
+      <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={disabled || loading}
@@ -48,7 +55,7 @@ export const Button = React.forwardRef(
           </svg>
         )}
         {children}
-      </Comp>
+      </button>
     )
   }
 )

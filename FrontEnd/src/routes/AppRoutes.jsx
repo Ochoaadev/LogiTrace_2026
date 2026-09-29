@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import ProtectedRoute from '../components/layout/ProtectedRoute'
+import { usePermissions } from '../hooks/usePermissions'
 
 import LoginPage from '../pages/Auth/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
@@ -21,6 +22,7 @@ import TrazabilidadPage from '../pages/Trazabilidad/TrazabilidadPage'
 import ResiduosPage from '../pages/Residuos/ResiduosPage'
 import ReportesPage from '../pages/Reportes/ReportesPage'
 import AdministracionPage from '../pages/Administracion/AdministracionPage'
+import MiRutaPage from '../pages/Repartidor/MiRutaPage'
 
 import ProductosPage from '../pages/Catalogos/ProductosPage'
 import ClientesPage from '../pages/Catalogos/ClientesPage'
@@ -31,6 +33,14 @@ import MotivosDevolucionPage from '../pages/Catalogos/MotivosDevolucionPage'
 import TiposResiduoPage from '../pages/Catalogos/TiposResiduoPage'
 import GestoresResiduoPage from '../pages/Catalogos/GestoresResiduoPage'
 
+
+
+// El repartidor trabaja desde su ruta (GPS); el panel de indicadores es del personal de planta
+function Inicio() {
+  const { can } = usePermissions()
+  return can('ruta.propia') ? <Navigate to="/mi-ruta" replace /> : <DashboardPage />
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -38,8 +48,12 @@ function AppRoutes() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/" element={<Inicio />} />
+          <Route path="/dashboard" element={<Inicio />} />
+
+          <Route element={<ProtectedRoute allowedPermissions={['ruta.propia']} />}>
+            <Route path="/mi-ruta" element={<MiRutaPage />} />
+          </Route>
 
           <Route path="/pedidos" element={<PedidosPage />} />
           <Route path="/pedidos/nuevo" element={<NuevoPedidoPage />} />

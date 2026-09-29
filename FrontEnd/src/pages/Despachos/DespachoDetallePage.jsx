@@ -15,7 +15,7 @@ import { useDespacho, useUpdateEstadoDespacho, useAsignarRepartidor } from '@/se
 import { useCreateIncidencia } from '@/services/query/useIncidencias'
 import { useRepartidores, useTiposIncidencia } from '@/services/query/useCatalogos'
 import { useTrazabilidadDespacho } from '@/services/query/useTrazabilidad'
-import { getEstadoConfig, getSiguientesEstados, ACCION_DESPACHO } from '@/schemas/despachoSchema'
+import { getEstadoConfig, getSiguientesEstados, accionDespacho } from '@/schemas/despachoSchema'
 import { LineaTemporal } from '@/pages/Trazabilidad/components/LineaTemporal'
 import { MapaRecorrido } from '@/pages/Trazabilidad/components/MapaRecorrido'
 import { CurvaTermica } from '@/pages/Trazabilidad/components/CurvaTermica'
@@ -138,11 +138,11 @@ export default function DespachoDetallePage() {
           {acciones.map((e) =>
             REQUIERE_MOTIVO.includes(e) ? (
               <Button key={e} size="sm" variant="ghost" className="text-danger" onClick={() => setDialogo({ tipo: 'estado', estado: e })}>
-                {ACCION_DESPACHO[e]}
+                {accionDespacho(e, d.estado)}
               </Button>
             ) : (
               <Button key={e} size="sm" onClick={() => ejecutar(e)} disabled={cambiarEstado.isPending} loading={cambiarEstado.isPending && cambiarEstado.variables?.estado === e}>
-                {ACCION_DESPACHO[e]}
+                {accionDespacho(e, d.estado)}
               </Button>
             )
           )}
@@ -243,7 +243,7 @@ export default function DespachoDetallePage() {
 
       {dialogo?.tipo === 'estado' && (
         <MotivoDialog
-          titulo={`${ACCION_DESPACHO[dialogo.estado]} ${d.codigo}`}
+          titulo={`${accionDespacho(dialogo.estado, d.estado)} ${d.codigo}`}
           descripcion="Los pedidos vuelven a 'Listo para despacho' y el repartidor queda disponible."
           enviando={cambiarEstado.isPending}
           error={errorAccion}

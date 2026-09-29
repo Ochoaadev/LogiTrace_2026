@@ -63,8 +63,34 @@ async function changeEstado(req, res, next) {
 async function updateUbicacion(req, res, next) {
   try {
     const { latitud, longitud, precisionMetros, velocidadKmh } = req.body
-    const despacho = await despachoService.updateUbicacion(req.params.id, { latitud, longitud, precisionMetros, velocidadKmh }, req.user.sub)
-    return success(res, despacho, 'Ubicación actualizada')
+    const punto = await despachoService.updateUbicacion(req.params.id, { latitud, longitud, precisionMetros, velocidadKmh }, req.user)
+    return success(res, punto, 'Ubicación registrada', 201)
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function getMiRuta(req, res, next) {
+  try {
+    return success(res, await despachoService.getMiRuta(req.user.sub), 'Ruta del repartidor obtenida')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function iniciarRecorrido(req, res, next) {
+  try {
+    return success(res, await despachoService.iniciarRecorrido(req.params.id, req.user), 'Recorrido iniciado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function registrarEntrega(req, res, next) {
+  try {
+    const { receptor, observaciones, latitud, longitud, precisionMetros } = req.body
+    const despacho = await despachoService.registrarEntrega(req.params.id, req.params.paradaId, { receptor, observaciones, latitud, longitud, precisionMetros }, req.user)
+    return success(res, despacho, 'Entrega registrada')
   } catch (err) {
     next(err)
   }
@@ -108,6 +134,9 @@ async function getResumenDespachos(req, res, next) {
 }
 
 module.exports = {
+  getMiRuta,
+  iniciarRecorrido,
+  registrarEntrega,
   getResumenDespachos,
   listDespachos,
   getDespachoById,
