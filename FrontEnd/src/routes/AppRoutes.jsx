@@ -23,16 +23,7 @@ import ResiduosPage from '../pages/Residuos/ResiduosPage'
 import ReportesPage from '../pages/Reportes/ReportesPage'
 import AdministracionPage from '../pages/Administracion/AdministracionPage'
 import MiRutaPage from '../pages/Repartidor/MiRutaPage'
-
-import ProductosPage from '../pages/Catalogos/ProductosPage'
-import ClientesPage from '../pages/Catalogos/ClientesPage'
-import ZonasPage from '../pages/Catalogos/ZonasPage'
-import VehiculosPage from '../pages/Catalogos/VehiculosPage'
-import TiposIncidenciaPage from '../pages/Catalogos/TiposIncidenciaPage'
-import MotivosDevolucionPage from '../pages/Catalogos/MotivosDevolucionPage'
-import TiposResiduoPage from '../pages/Catalogos/TiposResiduoPage'
-import GestoresResiduoPage from '../pages/Catalogos/GestoresResiduoPage'
-
+import CatalogoPage from '../pages/Catalogos/CatalogoPage'
 
 
 // El repartidor trabaja desde su ruta (GPS); el panel de indicadores es del personal de planta
@@ -92,14 +83,14 @@ function AppRoutes() {
           </Route>
 
           <Route element={<ProtectedRoute allowedPermissions={['catalogos.list']} />}>
-          <Route path="/catalogos/productos" element={<ProductosPage />} />
-          <Route path="/catalogos/clientes" element={<ClientesPage />} />
-          <Route path="/catalogos/zonas" element={<ZonasPage />} />
-          <Route path="/catalogos/vehiculos" element={<VehiculosPage />} />
-          <Route path="/catalogos/tipos-incidencia" element={<TiposIncidenciaPage />} />
-          <Route path="/catalogos/motivos-devolucion" element={<MotivosDevolucionPage />} />
-          <Route path="/catalogos/tipos-residuo" element={<TiposResiduoPage />} />
-          <Route path="/catalogos/gestores-residuo" element={<GestoresResiduoPage />} />
+          <Route path="/catalogos/productos" element={<CatalogoPage key="productos" clave="productos" />} />
+          <Route path="/catalogos/clientes" element={<CatalogoPage key="clientes" clave="clientes" />} />
+          <Route path="/catalogos/zonas" element={<CatalogoPage key="zonas" clave="zonas" />} />
+          <Route path="/catalogos/vehiculos" element={<CatalogoPage key="vehiculos" clave="vehiculos" />} />
+          <Route path="/catalogos/tipos-incidencia" element={<CatalogoPage key="tipos-incidencia" clave="tipos-incidencia" />} />
+          <Route path="/catalogos/motivos-devolucion" element={<CatalogoPage key="motivos-devolucion" clave="motivos-devolucion" />} />
+          <Route path="/catalogos/tipos-residuo" element={<CatalogoPage key="tipos-residuo" clave="tipos-residuo" />} />
+          <Route path="/catalogos/gestores-residuo" element={<CatalogoPage key="gestores-residuo" clave="gestores-residuo" />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedPermissions={['admin.usuarios.list']} />}>

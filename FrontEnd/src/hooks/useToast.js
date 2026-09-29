@@ -1,15 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
-import { ToastActionElement, ToastProps } from "@/components/ui/Toast";
+import { useState, useEffect } from "react";
 
 const TOAST_LIMIT = 5;
 const TOAST_REMOVE_DELAY = 5000;
-
-const actionTypes = {
-  ADD_TOAST: "ADD_TOAST",
-  UPDATE_TOAST: "UPDATE_TOAST",
-  DISMISS_TOAST: "DISMISS_TOAST",
-  REMOVE_TOAST: "REMOVE_TOAST",
-};
 
 let count = 0;
 
