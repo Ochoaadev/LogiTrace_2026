@@ -6,6 +6,9 @@ const {
   createResiduoValidation,
   updateResiduoValidation,
   changeEstadoResiduoValidation,
+  manifiestoValidation,
+  resumenValidation,
+  idResiduoValidation,
 } = require('./residuo.validation')
 const { validationMiddleware } = require('../../middlewares/validationMiddleware')
 const { authMiddleware } = require('../../middlewares/authMiddleware')
@@ -24,13 +27,33 @@ router.get(
 
 router.get(
   '/resumen',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  resumenValidation,
+  validationMiddleware,
   residuoController.getResumen
+)
+
+router.get(
+  '/export/csv',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  listResiduosValidation,
+  validationMiddleware,
+  residuoController.exportCsv
+)
+
+router.get(
+  '/manifiesto/pdf',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  manifiestoValidation,
+  validationMiddleware,
+  residuoController.exportManifiesto
 )
 
 router.get(
   '/:id',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  idResiduoValidation,
+  validationMiddleware,
   residuoController.getResiduoById
 )
 

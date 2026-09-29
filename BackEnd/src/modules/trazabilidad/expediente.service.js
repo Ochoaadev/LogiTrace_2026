@@ -75,6 +75,10 @@ const TITULO_POR_EVENTO_Y_ESTADO = {
   'INCIDENCIA_REGISTRADA:CERRADA': 'Incidencia cerrada',
   'INCIDENCIA_REGISTRADA:CANCELADA': 'Incidencia anulada',
   'INCIDENCIA_REGISTRADA:FINALIZADO': 'Despacho finalizado',
+  'RESIDUO_REGISTRADO:EN_ALMACENAMIENTO': 'Residuo en almacenamiento temporal',
+  'RESIDUO_REGISTRADO:RETIRADO': 'Residuo retirado por gestor',
+  'RESIDUO_REGISTRADO:DISPOSICION_FINAL': 'Disposición final del residuo',
+  'RESIDUO_REGISTRADO:ANULADO': 'Registro de residuo anulado',
 }
 
 // Evento de trazabilidad en el formato de la línea temporal (título, módulo, categoría visual)

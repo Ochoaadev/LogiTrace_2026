@@ -5,10 +5,10 @@ const createResiduoValidation = [
     .notEmpty().withMessage('El tipo de residuo es obligatorio')
     .isUUID().withMessage('Tipo de residuo inválido'),
   body('devolucionId')
-    .optional()
+    .optional({ values: 'falsy' })
     .isUUID().withMessage('Devolución inválida'),
   body('gestorId')
-    .optional()
+    .optional({ values: 'falsy' })
     .isUUID().withMessage('Gestor inválido'),
   body('cantidad')
     .notEmpty().withMessage('La cantidad es obligatoria')
@@ -54,6 +54,9 @@ const changeEstadoResiduoValidation = [
   body('observaciones')
     .optional()
     .isString().withMessage('Observaciones inválidas'),
+  body('gestorId')
+    .optional({ values: 'falsy' })
+    .isUUID().withMessage('Gestor inválido'),
 ]
 
 const listResiduosValidation = [
@@ -66,11 +69,27 @@ const listResiduosValidation = [
   query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
   query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
   query('search').optional().isString().withMessage('Búsqueda inválida'),
+  query('pendientes').optional().isIn(['true', 'false']).withMessage('Filtro de pendientes inválido'),
 ]
+
+const resumenValidation = [
+  query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
+  query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
+]
+
+const manifiestoValidation = [
+  ...resumenValidation,
+  query('gestorId').optional().isUUID().withMessage('Gestor inválido'),
+]
+
+const idResiduoValidation = [param('id').isUUID().withMessage('ID inválido')]
 
 module.exports = {
   createResiduoValidation,
   updateResiduoValidation,
   changeEstadoResiduoValidation,
   listResiduosValidation,
+  resumenValidation,
+  manifiestoValidation,
+  idResiduoValidation,
 }

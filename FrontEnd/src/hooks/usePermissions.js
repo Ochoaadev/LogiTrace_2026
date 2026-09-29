@@ -59,6 +59,7 @@ const PERMISSIONS = {
   'residuos.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'residuos.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'residuos.create': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
+  'residuos.update': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'residuos.export': ['ADMINISTRADOR', 'SUPERVISOR'],
 
   // Reportes
