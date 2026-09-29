@@ -31,7 +31,12 @@ y ejecuta 3 rondas de los 14 casos por participante. La base de desarrollo no se
 
 ## Historial
 
+> Las carpetas `ejecucion-2` y `ejecucion-3` se conservan solo en el equipo del autor (excluidas en
+> `.gitignore`); el repositorio mantiene el script para regenerarlas y la `ejecucion-1` como evidencia
+> del defecto detectado.
+
 | Ejecución | Resultado | Notas |
 |---|---|---|
 | `ejecucion-1` | 10 Cumple · 4 Parcial | Detectó un defecto real: al preparar un pedido desde la interfaz no se descontaba inventario, pero el reingreso de una devolución sí lo sumaba (PF-08, PF-12 y PF-14). La observación de PF-09 se debió a un nombre de evento mal indicado en el propio script de prueba (`DESPACHO_ASIGNADO` en lugar de `DESPACHO_CREADO`); no era un defecto del sistema. |
+| `ejecucion-3` | 14 Cumple (12/12 participantes) | Prueba de regresión tras la Fase 10: cada solicitud verifica ahora en la BD el estado y el rol de la cuenta, y las operaciones de escritura se registran en auditoría. Resultados y tiempos equivalentes a `ejecucion-2`. |
 | `ejecucion-2` | 14 Cumple (12/12 participantes) | Tras corregir el defecto: al marcar un pedido "listo para despacho" se asignan los lotes de la cava por FEFO, se descuenta el stock y se registran los movimientos de salida; el despacho vincula esos lotes a la parada y la cancelación de un pedido preparado devuelve el stock. |
