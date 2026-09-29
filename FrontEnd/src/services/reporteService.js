@@ -1,14 +1,12 @@
 import api from './api'
 
 export const reporteService = {
-  getPedidos: (params) => api.get('/reportes/pedidos', { params }),
-  getDespachos: (params) => api.get('/reportes/despachos', { params }),
-  getIncidencias: (params) => api.get('/reportes/incidencias', { params }),
-  getDevoluciones: (params) => api.get('/reportes/devoluciones', { params }),
-  getInventario: (params) => api.get('/reportes/inventario', { params }),
-  getRendimiento: (params) => api.get('/reportes/rendimiento', { params }),
+  // Reporte operativo del módulo 09 (indicadores, sectores, causas, devoluciones, residuos)
+  getOperativo: (params) => api.get('/reportes/operativo', { params }),
+  exportCsv: (params) => api.get('/reportes/operativo/export/csv', { params, responseType: 'blob' }),
+  exportPdf: (params) => api.get('/reportes/operativo/export/pdf', { params, responseType: 'blob' }),
 
-  // Dashboard methods
+  // Dashboard
   getKPIs: () => api.get('/reportes/kpis'),
   getPedidosPorEstado: () => api.get('/reportes/pedidos-por-estado'),
   getTimelinePedidos: (dias = 30) => api.get('/reportes/timeline', { params: { dias } }),

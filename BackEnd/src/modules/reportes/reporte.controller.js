@@ -1,59 +1,7 @@
+const prisma = require('../../config/database')
 const reporteService = require('./reporte.service')
+const operativoService = require('./operativo.service')
 const { success } = require('../../utils/response')
-
-async function getReportePedidos(req, res, next) {
-  try {
-    const reporte = await reporteService.getReportePedidos(req.query)
-    return success(res, reporte, 'Reporte de pedidos generado')
-  } catch (err) {
-    next(err)
-  }
-}
-
-async function getReporteDespachos(req, res, next) {
-  try {
-    const reporte = await reporteService.getReporteDespachos(req.query)
-    return success(res, reporte, 'Reporte de despachos generado')
-  } catch (err) {
-    next(err)
-  }
-}
-
-async function getReporteIncidencias(req, res, next) {
-  try {
-    const reporte = await reporteService.getReporteIncidencias(req.query)
-    return success(res, reporte, 'Reporte de incidencias generado')
-  } catch (err) {
-    next(err)
-  }
-}
-
-async function getReporteDevoluciones(req, res, next) {
-  try {
-    const reporte = await reporteService.getReporteDevoluciones(req.query)
-    return success(res, reporte, 'Reporte de devoluciones generado')
-  } catch (err) {
-    next(err)
-  }
-}
-
-async function getReporteInventario(req, res, next) {
-  try {
-    const reporte = await reporteService.getReporteInventario(req.query)
-    return success(res, reporte, 'Reporte de inventario generado')
-  } catch (err) {
-    next(err)
-  }
-}
-
-async function getReporteRendimiento(req, res, next) {
-  try {
-    const reporte = await reporteService.getReporteRendimiento(req.query)
-    return success(res, reporte, 'Reporte de rendimiento generado')
-  } catch (err) {
-    next(err)
-  }
-}
 
 async function getDashboardKPIs(req, res, next) {
   try {
@@ -109,13 +57,44 @@ async function getAlertas(req, res, next) {
   }
 }
 
+async function getReporteOperativo(req, res, next) {
+  try {
+    const reporte = await operativoService.getReporteOperativo(req.query)
+    return success(res, reporte, 'Reporte operativo generado')
+  } catch (err) {
+    next(err)
+  }
+}
+
+const sufijoArchivo = () => new Date().toISOString().slice(0, 10)
+
+async function exportReporteCsv(req, res, next) {
+  try {
+    const csv = await operativoService.exportReporteCsv(req.query)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="reporte-operativo-${sufijoArchivo()}.csv"`)
+    return res.send(csv)
+  } catch (err) {
+    next(err)
+  }
+}
+
+async function exportReportePdf(req, res, next) {
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub }, select: { nombre: true } })
+    const doc = await operativoService.buildReportePdf(req.query, usuario?.nombre)
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="reporte-operativo-${sufijoArchivo()}.pdf"`)
+    doc.pipe(res)
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
-  getReportePedidos,
-  getReporteDespachos,
-  getReporteIncidencias,
-  getReporteDevoluciones,
-  getReporteInventario,
-  getReporteRendimiento,
+  getReporteOperativo,
+  exportReporteCsv,
+  exportReportePdf,
   getDashboardKPIs,
   getPedidosPorEstado,
   getTimelinePedidos,

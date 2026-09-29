@@ -1,18 +1,10 @@
 const { query } = require('express-validator')
 
-const listReportesValidation = [
-  query('page').optional().isInt({ min: 1 }).withMessage('Página inválida'),
-  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Límite 1-100'),
+const operativoValidation = [
   query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
   query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
-  query('tipoReporte').optional().isIn(['PEDIDOS', 'DESPACHOS', 'INCIDENCIAS', 'DEVOLUCIONES', 'INVENTARIO', 'RENDIMIENTO']).withMessage('Tipo de reporte inválido'),
-]
-
-const rendimientoValidation = [
-  query('fechaDesde').optional().isISO8601().withMessage('Fecha desde inválida'),
-  query('fechaHasta').optional().isISO8601().withMessage('Fecha hasta inválida'),
-  query('repartidorId').optional().isUUID().withMessage('Repartidor inválido'),
-  query('vehiculoId').optional().isUUID().withMessage('Vehículo inválido'),
+  query('zonaId').optional().isUUID().withMessage('Sector inválido'),
+  query('secciones').optional().matches(/^(entregas|incidencias|devoluciones|residuos)(,(entregas|incidencias|devoluciones|residuos))*$/).withMessage('Secciones inválidas'),
 ]
 
 const kpiValidation = [
@@ -31,7 +23,6 @@ const limitValidation = [
 module.exports = {
   timelineValidation,
   limitValidation,
-  listReportesValidation,
-  rendimientoValidation,
+  operativoValidation,
   kpiValidation,
 }

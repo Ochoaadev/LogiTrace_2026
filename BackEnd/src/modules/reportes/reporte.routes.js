@@ -2,8 +2,7 @@ const express = require('express')
 const router = express.Router()
 
 const {
-  listReportesValidation,
-  rendimientoValidation,
+  operativoValidation,
   kpiValidation,
   timelineValidation,
   limitValidation,
@@ -31,52 +30,11 @@ router.get('/top-clientes', roleMiddleware(...DASHBOARD_ROLES), limitValidation,
 router.get('/actividad', roleMiddleware(...DASHBOARD_ROLES), limitValidation, validationMiddleware, reporteController.getActividadReciente)
 router.get('/alertas', roleMiddleware(...DASHBOARD_ROLES), reporteController.getAlertas)
 
-router.get(
-  '/pedidos',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
-  listReportesValidation,
-  validationMiddleware,
-  reporteController.getReportePedidos
-)
+// Reporte operativo del módulo 09 y sus exportaciones (reporte ejecutivo / personalizado)
+const REPORTE_ROLES = ['ADMINISTRADOR', 'SUPERVISOR']
 
-router.get(
-  '/despachos',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
-  listReportesValidation,
-  validationMiddleware,
-  reporteController.getReporteDespachos
-)
-
-router.get(
-  '/incidencias',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
-  listReportesValidation,
-  validationMiddleware,
-  reporteController.getReporteIncidencias
-)
-
-router.get(
-  '/devoluciones',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
-  listReportesValidation,
-  validationMiddleware,
-  reporteController.getReporteDevoluciones
-)
-
-router.get(
-  '/inventario',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
-  listReportesValidation,
-  validationMiddleware,
-  reporteController.getReporteInventario
-)
-
-router.get(
-  '/rendimiento',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
-  rendimientoValidation,
-  validationMiddleware,
-  reporteController.getReporteRendimiento
-)
+router.get('/operativo', roleMiddleware(...REPORTE_ROLES), operativoValidation, validationMiddleware, reporteController.getReporteOperativo)
+router.get('/operativo/export/csv', roleMiddleware(...REPORTE_ROLES), operativoValidation, validationMiddleware, reporteController.exportReporteCsv)
+router.get('/operativo/export/pdf', roleMiddleware(...REPORTE_ROLES), operativoValidation, validationMiddleware, reporteController.exportReportePdf)
 
 module.exports = router
