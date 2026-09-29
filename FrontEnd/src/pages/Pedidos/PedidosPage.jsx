@@ -57,7 +57,8 @@ export default function PedidosPage() {
   const navigate = useNavigate()
   const { can } = usePermissions()
 
-  const [vista, setVista] = useState('activos')
+  // ?vista=historial permite abrir directamente el historial (p. ej. desde Nuevo pedido)
+  const [vista, setVista] = useState(() => (new URLSearchParams(window.location.search).get('vista') === 'historial' ? 'historial' : 'activos'))
   const [filtros, setFiltros] = useState({ search: '', estado: TODOS, zonaId: TODOS })
   const [page, setPage] = useState(1)
   const busqueda = useDeferredValue(filtros.search)
