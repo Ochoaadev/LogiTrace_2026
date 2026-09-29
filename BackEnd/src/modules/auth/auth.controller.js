@@ -1,10 +1,24 @@
 const authService = require('./auth.service')
 const { success, error } = require('../../utils/response')
+const prisma = require('../../config/database')
+const { registrar } = require('../auditoria/auditoria.service')
 
 async function login(req, res, next) {
   try {
     const { email, password } = req.body
-    const result = await authService.login(email, password)
+    let result
+    try {
+      result = await authService.login(email, password)
+    } catch (err) {
+      // Intento fallido sobre una cuenta existente (contraseña errada o cuenta desactivada).
+      // Los correos inexistentes no se pueden asociar a un usuario en la tabla Auditoria.
+      const cuenta = await prisma.usuario.findUnique({ where: { email: String(email).toLowerCase() }, select: { id: true } })
+      if (cuenta) {
+        await registrar({ usuarioId: cuenta.id, accion: 'INICIO_SESION_FALLIDO', modulo: 'Acceso', entidad: 'usuarios', entidadId: cuenta.id, ip: req.ip, detalle: err.message })
+      }
+      throw err
+    }
+    await registrar({ usuarioId: result.user.id, accion: 'INICIO_SESION', modulo: 'Acceso', entidad: 'usuarios', entidadId: result.user.id, ip: req.ip })
 
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,

@@ -8,7 +8,9 @@ const {
   changeEstadoValidation,
   changeRolValidation,
   changePasswordValidation,
+  resetPasswordValidation,
 } = require('./usuario.validation')
+const { param } = require('express-validator')
 const { validationMiddleware } = require('../../middlewares/validationMiddleware')
 const { authMiddleware } = require('../../middlewares/authMiddleware')
 const { roleMiddleware } = require('../../middlewares/roleMiddleware')
@@ -27,6 +29,8 @@ router.get(
   '/:id',
   authMiddleware,
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'),
+  param('id').isUUID().withMessage('ID inválido'),
+  validationMiddleware,
   usuarioController.getUsuarioById
 )
 
@@ -64,6 +68,15 @@ router.patch(
   changeRolValidation,
   validationMiddleware,
   usuarioController.changeRol
+)
+
+router.patch(
+  '/:id/restablecer-password',
+  authMiddleware,
+  roleMiddleware('ADMINISTRADOR'),
+  resetPasswordValidation,
+  validationMiddleware,
+  usuarioController.resetPassword
 )
 
 router.patch(

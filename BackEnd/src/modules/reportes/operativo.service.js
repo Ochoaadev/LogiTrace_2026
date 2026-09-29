@@ -3,6 +3,7 @@
 const PDFDocument = require('pdfkit')
 const prisma = require('../../config/database')
 const { AppError } = require('../../utils/AppError')
+const { PARAMETROS } = require('../../config/parametros')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 const { getResumenResiduos } = require('../residuos/residuo.service')
 
@@ -11,11 +12,12 @@ const TZ = 'America/Caracas'
 const PREFIJO_DEMO = 'DMR-'
 
 // Metas de referencia de la operación (se muestran junto a cada indicador)
+// Metas de referencia de la operación (src/config/parametros.js)
 const METAS = {
-  eficaciaMinima: 92, // % de entregas conformes
-  cicloEstandarMin: 40, // minutos de salida a entrega
-  incidenciasMaxima: 5, // % de paradas con incidencia
-  retornosMaximo: 3, // % de paradas con devolución
+  eficaciaMinima: PARAMETROS.eficaciaMinima, // % de entregas conformes
+  cicloEstandarMin: PARAMETROS.cicloEstandarMin, // minutos de salida a entrega
+  incidenciasMaxima: PARAMETROS.incidenciasMaxima, // % de paradas con incidencia
+  retornosMaximo: PARAMETROS.tasaRetornoMax, // % de paradas con devolución
 }
 
 const PARADAS_CERRADAS = ['ENTREGADO', 'DEVUELTO', 'REPROGRAMADO']

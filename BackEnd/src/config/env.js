@@ -6,6 +6,11 @@ const DEFAULT_CORS_ORIGINS = [
   'http://192.168.56.1:5173',
 ]
 
+// Sin JWT_SECRET, cualquiera que conozca el valor por defecto podría firmar tokens válidos
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET es obligatorio en producción')
+}
+
 module.exports = {
   port: process.env.PORT || 3000,
   jwtSecret: process.env.JWT_SECRET || 'default-secret',

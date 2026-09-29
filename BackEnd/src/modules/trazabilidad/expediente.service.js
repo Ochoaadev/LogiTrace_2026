@@ -4,9 +4,10 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { PARAMETROS } = require('../../config/parametros')
 
 // Temperatura máxima admisible para producto congelado. Registros por encima rompen la cadena de frío.
-const LIMITE_CRITICO_C = Number(process.env.TEMP_LIMITE_CRITICO_C ?? -15)
+const LIMITE_CRITICO_C = PARAMETROS.limiteCriticoC
 
 // Módulo del Figma al que pertenece cada tipo de evento (etiqueta "MÓDULO 0X" de la línea temporal)
 const MODULO_POR_EVENTO = {

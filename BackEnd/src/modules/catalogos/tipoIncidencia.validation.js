@@ -14,7 +14,8 @@ const createTipoIncidenciaValidation = [
     .isString().withMessage('Descripción inválida'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateTipoIncidenciaValidation = [
@@ -28,7 +29,8 @@ const updateTipoIncidenciaValidation = [
     .isString().withMessage('Descripción inválida'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listTiposIncidenciaValidation = [

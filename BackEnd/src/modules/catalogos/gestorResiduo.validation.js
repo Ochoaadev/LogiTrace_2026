@@ -20,7 +20,8 @@ const createGestorResiduoValidation = [
     .isString().withMessage('Ubicación inválida'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateGestorResiduoValidation = [
@@ -40,7 +41,8 @@ const updateGestorResiduoValidation = [
     .isString().withMessage('Ubicación inválida'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listGestoresResiduoValidation = [

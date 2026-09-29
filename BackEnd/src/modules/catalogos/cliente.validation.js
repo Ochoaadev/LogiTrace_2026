@@ -31,7 +31,8 @@ const createClienteValidation = [
     .normalizeEmail(),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateClienteValidation = [
@@ -62,7 +63,8 @@ const updateClienteValidation = [
     .normalizeEmail(),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listClientesValidation = [

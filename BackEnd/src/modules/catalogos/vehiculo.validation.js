@@ -27,7 +27,8 @@ const createVehiculoValidation = [
     .isBoolean().withMessage('esTermico debe ser true o false'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateVehiculoValidation = [
@@ -54,7 +55,8 @@ const updateVehiculoValidation = [
     .isBoolean().withMessage('esTermico debe ser true o false'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listVehiculosValidation = [

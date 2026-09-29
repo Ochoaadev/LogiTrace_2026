@@ -15,7 +15,8 @@ const createZonaValidation = [
     .trim(),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateZonaValidation = [
@@ -30,7 +31,8 @@ const updateZonaValidation = [
     .trim(),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listZonasValidation = [

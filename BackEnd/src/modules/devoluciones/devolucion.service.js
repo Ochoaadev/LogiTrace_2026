@@ -2,6 +2,7 @@ const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
+const { PARAMETROS } = require('../../config/parametros')
 
 // Cierra un despacho cuyas paradas quedaron todas devueltas y libera al repartidor (antes el
 // repartidor quedaba EN_RUTA y ya no aparecía como disponible)
@@ -99,7 +100,7 @@ function inicioDiaVE(offsetDias = 0) {
   return d
 }
 
-const TASA_RETORNO_MAX = Number(process.env.TASA_RETORNO_MAX ?? 3.5)
+const TASA_RETORNO_MAX = PARAMETROS.tasaRetornoMax
 
 /**
  * Indicadores del módulo 05 (tarjetas, últimas decisiones) y paradas a las que se puede

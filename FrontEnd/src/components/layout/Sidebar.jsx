@@ -31,8 +31,10 @@ const MODULES = [
 
 // Módulo 10: Administración agrupa usuarios, roles y los catálogos maestros
 const ADMIN_ITEMS = [
-  { to: '/administracion/usuarios', label: 'Usuarios', permission: 'admin.usuarios.list' },
-  { to: '/administracion/roles', label: 'Roles y Permisos', permission: 'admin.roles.list' },
+  { to: '/administracion?vista=usuarios', label: 'Usuarios y accesos', permission: 'admin.usuarios.list' },
+  { to: '/administracion?vista=roles', label: 'Roles y permisos', permission: 'admin.roles.list' },
+  { to: '/administracion?vista=catalogos', label: 'Catálogos del negocio', permission: 'admin.catalogos.manage' },
+  { to: '/administracion?vista=parametros', label: 'Parámetros de planta', permission: 'admin.usuarios.list' },
   { to: '/catalogos/productos', label: 'Productos', permission: 'catalogos.list' },
   { to: '/catalogos/clientes', label: 'Clientes', permission: 'catalogos.list' },
   { to: '/catalogos/zonas', label: 'Zonas de Despacho', permission: 'catalogos.list' },
@@ -71,13 +73,20 @@ function Sidebar({ mobileOpen = false, onClose }) {
 
   const modules = MODULES.filter((m) => can(m.permission))
   const adminItems = ADMIN_ITEMS.filter((i) => can(i.permission))
-  const adminActive = adminItems.some((i) => location.pathname.startsWith(i.to))
+  // Las vistas de /administracion se distinguen por ?vista= (NavLink solo compara la ruta)
+  const vistaAdmin = new URLSearchParams(location.search).get('vista') || 'usuarios'
+  const itemActivo = (to) => {
+    const [ruta, query] = to.split('?')
+    if (location.pathname !== ruta) return false
+    return !query || new URLSearchParams(query).get('vista') === vistaAdmin
+  }
+  const adminActive = adminItems.some((i) => location.pathname.startsWith(i.to.split('?')[0]))
   const [adminOpen, setAdminOpen] = useState(adminActive)
 
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden animar-overlay" data-state="open" onClick={onClose} aria-hidden="true" />
       )}
 
       <aside
@@ -122,10 +131,11 @@ function Sidebar({ mobileOpen = false, onClose }) {
                       key={item.to}
                       to={item.to}
                       onClick={onClose}
-                      className={({ isActive }) =>
+                      aria-current={itemActivo(item.to) ? 'page' : undefined}
+                      className={() =>
                         cn(
                           'block pl-[4.75rem] pr-4 py-2 text-sm transition-colors',
-                          isActive ? 'text-primary font-medium bg-gray-50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          itemActivo(item.to) ? 'text-primary font-medium bg-gray-50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                         )
                       }
                     >

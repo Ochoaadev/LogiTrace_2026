@@ -74,7 +74,17 @@ async function changePassword(req, res, next) {
   }
 }
 
+async function resetPassword(req, res, next) {
+  try {
+    await usuarioService.resetPassword(req.params.id, req.body.passwordNueva)
+    return success(res, null, 'Contraseña restablecida')
+  } catch (err) {
+    next(err)
+  }
+}
+
 module.exports = {
+  resetPassword,
   listUsuarios,
   getUsuarioById,
   createUsuario,

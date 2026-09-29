@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
 import ProtectedRoute from '../components/layout/ProtectedRoute'
 
@@ -21,9 +20,7 @@ import MovimientoDetallePage from '../pages/Inventario/MovimientoDetallePage'
 import TrazabilidadPage from '../pages/Trazabilidad/TrazabilidadPage'
 import ResiduosPage from '../pages/Residuos/ResiduosPage'
 import ReportesPage from '../pages/Reportes/ReportesPage'
-import UsuariosPage from '../pages/Administracion/UsuariosPage'
-import RolesPage from '../pages/Administracion/RolesPage'
-import CatalogosPage from '../pages/Administracion/CatalogosPage'
+import AdministracionPage from '../pages/Administracion/AdministracionPage'
 
 import ProductosPage from '../pages/Catalogos/ProductosPage'
 import ClientesPage from '../pages/Catalogos/ClientesPage'
@@ -35,8 +32,6 @@ import TiposResiduoPage from '../pages/Catalogos/TiposResiduoPage'
 import GestoresResiduoPage from '../pages/Catalogos/GestoresResiduoPage'
 
 function AppRoutes() {
-  const { user } = useAuth()
-
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -58,18 +53,31 @@ function AppRoutes() {
           <Route path="/incidencias" element={<IncidenciasPage />} />
           <Route path="/incidencias/:id" element={<IncidenciaDetallePage />} />
 
-          <Route path="/devoluciones" element={<DevolucionesPage />} />
-          <Route path="/devoluciones/:id" element={<DevolucionDetallePage />} />
+          {/* Los módulos que no todos los perfiles pueden abrir redirigen al inicio (antes solo el
+              menú los ocultaba y la dirección directa mostraba la pantalla con errores de permisos) */}
+          <Route element={<ProtectedRoute allowedPermissions={['devoluciones.list']} />}>
+            <Route path="/devoluciones" element={<DevolucionesPage />} />
+            <Route path="/devoluciones/:id" element={<DevolucionDetallePage />} />
+          </Route>
 
-          <Route path="/inventario" element={<InventarioPage />} />
-          <Route path="/inventario/movimiento/:id" element={<MovimientoDetallePage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['inventario.list']} />}>
+            <Route path="/inventario" element={<InventarioPage />} />
+            <Route path="/inventario/movimiento/:id" element={<MovimientoDetallePage />} />
+          </Route>
 
-          <Route path="/trazabilidad" element={<TrazabilidadPage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['trazabilidad.list']} />}>
+            <Route path="/trazabilidad" element={<TrazabilidadPage />} />
+          </Route>
 
-          <Route path="/residuos" element={<ResiduosPage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['residuos.list']} />}>
+            <Route path="/residuos" element={<ResiduosPage />} />
+          </Route>
 
-          <Route path="/reportes" element={<ReportesPage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['reportes.view']} />}>
+            <Route path="/reportes" element={<ReportesPage />} />
+          </Route>
 
+          <Route element={<ProtectedRoute allowedPermissions={['catalogos.list']} />}>
           <Route path="/catalogos/productos" element={<ProductosPage />} />
           <Route path="/catalogos/clientes" element={<ClientesPage />} />
           <Route path="/catalogos/zonas" element={<ZonasPage />} />
@@ -78,10 +86,14 @@ function AppRoutes() {
           <Route path="/catalogos/motivos-devolucion" element={<MotivosDevolucionPage />} />
           <Route path="/catalogos/tipos-residuo" element={<TiposResiduoPage />} />
           <Route path="/catalogos/gestores-residuo" element={<GestoresResiduoPage />} />
+          </Route>
 
-          <Route path="/administracion/usuarios" element={<UsuariosPage />} />
-          <Route path="/administracion/roles" element={<RolesPage />} />
-          <Route path="/administracion/catalogos" element={<CatalogosPage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['admin.usuarios.list']} />}>
+            <Route path="/administracion" element={<AdministracionPage />} />
+            <Route path="/administracion/usuarios" element={<Navigate to="/administracion?vista=usuarios" replace />} />
+            <Route path="/administracion/roles" element={<Navigate to="/administracion?vista=roles" replace />} />
+            <Route path="/administracion/catalogos" element={<Navigate to="/administracion?vista=catalogos" replace />} />
+          </Route>
         </Route>
       </Route>
 

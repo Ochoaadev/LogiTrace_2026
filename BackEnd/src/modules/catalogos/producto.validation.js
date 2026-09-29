@@ -21,7 +21,8 @@ const createProductoValidation = [
     .isBoolean().withMessage('esPerecedero debe ser true o false'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateProductoValidation = [
@@ -42,7 +43,8 @@ const updateProductoValidation = [
     .isBoolean().withMessage('esPerecedero debe ser true o false'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listProductosValidation = [

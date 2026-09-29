@@ -6,6 +6,7 @@ const { port, corsOrigins } = require('./config/env')
 const routes = require('./routes')
 const prisma = require('./config/database')
 const { errorMiddleware } = require('./middlewares/errorMiddleware')
+const { auditoriaMiddleware } = require('./middlewares/auditoriaMiddleware')
 
 const app = express()
 
@@ -33,7 +34,8 @@ async function health(req, res) {
 }
 app.get(['/health', '/api/health'], health)
 
-app.use('/api', routes)
+// Registra en Auditoria cada operación de escritura exitosa (usuario, acción, IP)
+app.use('/api', auditoriaMiddleware, routes)
 
 app.use(errorMiddleware)
 

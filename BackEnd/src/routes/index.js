@@ -13,6 +13,7 @@ const trazabilidadRoutes = require('../modules/trazabilidad/trazabilidad.routes'
 const residuoRoutes = require('../modules/residuos/residuo.routes')
 const reporteRoutes = require('../modules/reportes/reporte.routes')
 const auditoriaRoutes = require('../modules/auditoria/auditoria.routes')
+const administracionRoutes = require('../modules/administracion/administracion.routes')
 
 router.use('/auth', authRoutes)
 router.use('/usuarios', usuarioRoutes)
@@ -26,5 +27,6 @@ router.use('/trazabilidad', trazabilidadRoutes)
 router.use('/residuos', residuoRoutes)
 router.use('/reportes', reporteRoutes)
 router.use('/auditoria', auditoriaRoutes)
+router.use('/administracion', administracionRoutes)
 
 module.exports = router

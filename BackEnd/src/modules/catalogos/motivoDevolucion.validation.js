@@ -14,7 +14,8 @@ const createMotivoDevolucionValidation = [
     .isString().withMessage('Descripción inválida'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const updateMotivoDevolucionValidation = [
@@ -28,7 +29,8 @@ const updateMotivoDevolucionValidation = [
     .isString().withMessage('Descripción inválida'),
   body('activo')
     .optional()
-    .isBoolean().withMessage('activo debe ser true o false'),
+    .isBoolean().withMessage('activo debe ser true o false')
+    .toBoolean(),
 ]
 
 const listMotivosDevolucionValidation = [

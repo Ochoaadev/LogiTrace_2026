@@ -25,6 +25,9 @@ const createUsuarioValidation = [
   body('telefono')
     .optional()
     .isLength({ max: 30 }).withMessage('El teléfono no puede exceder 30 caracteres'),
+  body('numeroLicencia')
+    .optional()
+    .isLength({ max: 30 }).withMessage('La licencia no puede exceder 30 caracteres'),
 ]
 
 const updateUsuarioValidation = [
@@ -43,13 +46,29 @@ const updateUsuarioValidation = [
   body('telefono')
     .optional()
     .isLength({ max: 30 }).withMessage('El teléfono no puede exceder 30 caracteres'),
+  body('numeroLicencia')
+    .optional()
+    .isLength({ max: 30 }).withMessage('La licencia no puede exceder 30 caracteres'),
 ]
 
 const changeEstadoValidation = [
   param('id').isUUID().withMessage('ID inválido'),
+  // toBoolean: "false" (texto) llegaba a Prisma como string y la actualización fallaba
   body('activo')
     .notEmpty().withMessage('El estado es obligatorio')
-    .isBoolean().withMessage('El estado debe ser true o false'),
+    .isBoolean().withMessage('El estado debe ser true o false')
+    .toBoolean(),
+]
+
+const resetPasswordValidation = [
+  param('id').isUUID().withMessage('ID inválido'),
+  body('passwordNueva')
+    .notEmpty().withMessage('La nueva contraseña es obligatoria')
+    .isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres')
+    .matches(/[A-Z]/).withMessage('La contraseña debe contener al menos una mayúscula')
+    .matches(/[a-z]/).withMessage('La contraseña debe contener al menos una minúscula')
+    .matches(/[0-9]/).withMessage('La contraseña debe contener al menos un número')
+    .matches(/[^A-Za-z0-9]/).withMessage('La contraseña debe contener al menos un carácter especial'),
 ]
 
 const changeRolValidation = [
@@ -89,5 +108,6 @@ module.exports = {
   changeEstadoValidation,
   changeRolValidation,
   changePasswordValidation,
+  resetPasswordValidation,
   listUsuariosValidation,
 }
