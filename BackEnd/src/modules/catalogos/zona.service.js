@@ -2,6 +2,10 @@ const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
 
+// Solo estos campos llegan a la base de datos (antes se pasaba el cuerpo completo de la petición)
+const CAMPOS_ZONA = ['codigo', 'nombre', 'municipio', 'latitudCentro', 'longitudCentro', 'activo']
+const permitidos = (data) => Object.fromEntries(Object.entries(data).filter(([k, v]) => CAMPOS_ZONA.includes(k) && v !== undefined))
+
 async function listZonas(query) {
   const { page, limit, skip } = getPagination(query)
   const { activo, search } = query
@@ -43,14 +47,16 @@ async function createZona(data) {
   const existing = await prisma.zonaDespacho.findUnique({ where: { codigo: data.codigo } })
   if (existing) throw new AppError('El código ya existe', 409)
 
-  return prisma.zonaDespacho.create({ data })
+  return prisma.zonaDespacho.create({ data: permitidos(data) })
 }
 
 async function updateZona(id, data) {
   const zona = await prisma.zonaDespacho.findUnique({ where: { id } })
   if (!zona) throw new AppError('Zona no encontrada', 404)
 
-  return prisma.zonaDespacho.update({ where: { id }, data })
+  const cambios = permitidos(data)
+  delete cambios.codigo // el código no se edita
+  return prisma.zonaDespacho.update({ where: { id }, data: cambios })
 }
 
 async function deleteZona(id) {

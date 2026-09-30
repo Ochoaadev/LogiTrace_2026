@@ -261,6 +261,8 @@ model ZonaDespacho {
   codigo      String   @unique @db.VarChar(20)
   nombre      String   @db.VarChar(100)
   municipio   String?  @db.VarChar(100)
+  latitudCentro  Decimal? @db.Decimal(9, 6) // punto de referencia para sugerir la zona de un pedido
+  longitudCentro Decimal? @db.Decimal(9, 6)
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)

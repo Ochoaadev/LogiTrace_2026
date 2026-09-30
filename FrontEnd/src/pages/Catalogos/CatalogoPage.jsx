@@ -14,6 +14,7 @@ import { DataTable, createTableColumns } from '@/components/ui/Table'
 import { PaginacionServidor } from '@/components/ui/PaginacionServidor'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
+import { MapaSelector } from '@/components/MapaSelector'
 import { usePermissions } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
 import { CATALOGOS, ORDEN_CATALOGOS } from './catalogos'
@@ -113,9 +114,9 @@ export default function CatalogoPage({ clave }) {
         seccion="Catálogos maestros"
         title={cat.titulo}
         description={cat.descripcion}
-        actions={can('catalogos.create') && (
+        actions={can(cat.permisoCrear || 'catalogos.create') && (
           <Button size="lg" onClick={() => setDialogo({ tipo: 'form' })}>
-            <Plus className="h-5 w-5" aria-hidden="true" /> Nuevo {cat.singular}
+            <Plus className="h-5 w-5" aria-hidden="true" /> {cat.nuevo || `Nuevo ${cat.singular}`}
           </Button>
         )}
       >
@@ -172,6 +173,10 @@ export default function CatalogoPage({ clave }) {
 }
 
 function valorInicial(campo, registro) {
+  if (campo.type === 'ubicacion') {
+    const [lat, lng] = campo.campos.map((k) => registro?.[k])
+    return lat != null && lng != null ? { lat: Number(lat), lng: Number(lng) } : null
+  }
   const v = registro?.[campo.name]
   if (campo.type === 'check') return v ?? campo.predeterminado ?? false
   if (v === null || v === undefined) return campo.predeterminado ?? ''
@@ -192,14 +197,17 @@ function FormularioDialog({ cat, registro, onClose, onGuardado }) {
     const datos = {}
     for (const c of campos) {
       const v = valores[c.name]
-      if (c.type === 'check') datos[c.name] = !!v
+      if (c.type === 'ubicacion') {
+        // Se envía como dos columnas; al editar, null borra el punto
+        if (v || editando) c.campos.forEach((k, i) => { datos[k] = v ? Number((i === 0 ? v.lat : v.lng).toFixed(6)) : null })
+      } else if (c.type === 'check') datos[c.name] = !!v
       else if (c.type === 'number') { if (v !== '') datos[c.name] = Number(v) }
       else if (c.soloAlCrear) datos[c.name] = String(v).trim().toUpperCase()
       else if (String(v).trim() || editando) datos[c.name] = String(v).trim()
     }
     try {
-      await guardar.mutateAsync(datos)
-      onGuardado(editando ? `${registro.codigo} actualizado.` : `${datos.codigo} registrado.`)
+      const res = await guardar.mutateAsync(datos)
+      onGuardado(editando ? `${registro.codigo} actualizado.` : `${res?.data?.codigo || datos.codigo} registrado.`)
       onClose()
     } catch (err) {
       setError(mensaje(err, 'No se pudo guardar'))
@@ -211,11 +219,20 @@ function FormularioDialog({ cat, registro, onClose, onGuardado }) {
       <DialogContent className="max-w-lg">
         <form onSubmit={onSubmit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>{editando ? `Editar ${registro.codigo}` : `Nuevo ${cat.singular}`}</DialogTitle>
+            <DialogTitle>{editando ? `Editar ${registro.codigo}` : cat.nuevo || `Nuevo ${cat.singular}`}</DialogTitle>
             <DialogDescription>{cat.titulo} · los campos con * son obligatorios.</DialogDescription>
           </DialogHeader>
           {campos.map((c) => {
             const id = `cat-${c.name}`
+            if (c.type === 'ubicacion') {
+              return (
+                <div key={c.name} className="grid gap-2">
+                  <Label>{c.label}</Label>
+                  <MapaSelector valor={valores[c.name]} onChange={set(c.name)} indicacion={c.indicacion} alto="h-56" />
+                  {c.ayuda && <p className="text-xs text-gray-600">{c.ayuda}</p>}
+                </div>
+              )
+            }
             if (c.type === 'check') {
               return (
                 <label key={c.name} htmlFor={id} className="flex items-start gap-3 bg-gray-50 p-3 cursor-pointer text-sm text-gray-900">
@@ -255,7 +272,7 @@ function FormularioDialog({ cat, registro, onClose, onGuardado }) {
           {error && <p role="alert" className="text-sm text-danger">{error}</p>}
           <DialogFooter>
             <DialogCancel type="button">Cancelar</DialogCancel>
-            <Button type="submit" loading={guardar.isPending} disabled={guardar.isPending || campos.some((c) => c.required && !String(valores[c.name]).trim())}>
+            <Button type="submit" loading={guardar.isPending} disabled={guardar.isPending || campos.some((c) => c.required && !String(valores[c.name] ?? '').trim())}>
               {editando ? 'Guardar cambios' : 'Registrar'}
             </Button>
           </DialogFooter>

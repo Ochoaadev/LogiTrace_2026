@@ -2,7 +2,7 @@ const { body, param, query } = require('express-validator')
 
 const createClienteValidation = [
   body('codigo')
-    .notEmpty().withMessage('El código es obligatorio')
+    .optional({ values: 'falsy' }) // si falta, se asigna el siguiente CLI-###
     .isLength({ max: 20 }).withMessage('El código no puede exceder 20 caracteres')
     .trim(),
   body('razonSocial')
@@ -14,9 +14,8 @@ const createClienteValidation = [
     .isLength({ max: 120 }).withMessage('El nombre de contacto no puede exceder 120 caracteres')
     .trim(),
   body('tipoDocumento')
-    .optional()
-    .isLength({ max: 20 }).withMessage('El tipo de documento no puede exceder 20 caracteres')
-    .trim(),
+    .optional({ values: 'falsy' })
+    .isIn(['V', 'E', 'J', 'G', 'P']).withMessage('Tipo de documento inválido (V, E, J, G o P)'),
   body('numeroDocumento')
     .optional()
     .isLength({ max: 30 }).withMessage('El número de documento no puede exceder 30 caracteres')
@@ -46,9 +45,8 @@ const updateClienteValidation = [
     .isLength({ max: 120 }).withMessage('El nombre de contacto no puede exceder 120 caracteres')
     .trim(),
   body('tipoDocumento')
-    .optional()
-    .isLength({ max: 20 }).withMessage('El tipo de documento no puede exceder 20 caracteres')
-    .trim(),
+    .optional({ values: 'falsy' })
+    .isIn(['V', 'E', 'J', 'G', 'P']).withMessage('Tipo de documento inválido (V, E, J, G o P)'),
   body('numeroDocumento')
     .optional()
     .isLength({ max: 30 }).withMessage('El número de documento no puede exceder 30 caracteres')

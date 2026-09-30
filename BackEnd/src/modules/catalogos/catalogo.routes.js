@@ -74,7 +74,8 @@ router.delete('/productos/:id', roleMiddleware('ADMINISTRADOR'), productoControl
 // ============================================================
 router.get('/clientes', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'), listClientesValidation, validationMiddleware, clienteController.listClientes)
 router.get('/clientes/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'), clienteController.getClienteById)
-router.post('/clientes', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), createClienteValidation, validationMiddleware, clienteController.createCliente)
+// El operador registra clientes nuevos al tomar un pedido; editar y eliminar siguen reservados
+router.post('/clientes', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'), createClienteValidation, validationMiddleware, clienteController.createCliente)
 router.put('/clientes/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), updateClienteValidation, validationMiddleware, clienteController.updateCliente)
 router.delete('/clientes/:id', roleMiddleware('ADMINISTRADOR'), clienteController.deleteCliente)
 

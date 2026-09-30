@@ -1,5 +1,17 @@
 const { body, param, query } = require('express-validator')
 
+// Centro de la zona: ambos o ninguno (null borra el centro al editar)
+const centro = [
+  body('latitudCentro').optional({ values: 'null' }).isFloat({ min: -90, max: 90 }).withMessage('Latitud del centro fuera de rango').toFloat(),
+  body('longitudCentro').optional({ values: 'null' }).isFloat({ min: -180, max: 180 }).withMessage('Longitud del centro fuera de rango').toFloat(),
+  body('longitudCentro').custom((lng, { req }) => {
+    const conLat = req.body.latitudCentro != null
+    const conLng = lng != null
+    if (conLat !== conLng) throw new Error('Indique latitud y longitud del centro juntas')
+    return true
+  }),
+]
+
 const createZonaValidation = [
   body('codigo')
     .notEmpty().withMessage('El código es obligatorio')
@@ -17,6 +29,7 @@ const createZonaValidation = [
     .optional()
     .isBoolean().withMessage('activo debe ser true o false')
     .toBoolean(),
+  ...centro,
 ]
 
 const updateZonaValidation = [
@@ -33,6 +46,7 @@ const updateZonaValidation = [
     .optional()
     .isBoolean().withMessage('activo debe ser true o false')
     .toBoolean(),
+  ...centro,
 ]
 
 const listZonasValidation = [

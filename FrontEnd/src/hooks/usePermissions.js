@@ -77,6 +77,8 @@ const PERMISSIONS = {
   'catalogos.create': ['ADMINISTRADOR', 'SUPERVISOR'],
   'catalogos.edit': ['ADMINISTRADOR', 'SUPERVISOR'],
   'catalogos.delete': ['ADMINISTRADOR'],
+  // El operador registra clientes nuevos al tomar pedidos (sin poder editarlos ni borrarlos)
+  'clientes.create': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
 
   // Administración
   'admin.usuarios.list': ['ADMINISTRADOR'],

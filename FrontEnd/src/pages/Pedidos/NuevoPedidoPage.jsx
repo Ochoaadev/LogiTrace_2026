@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ReceiptText, FilePlus2, History, UserRound, Package, MapPinned, Plus, Trash2, Save, CircleCheck, CircleAlert } from 'lucide-react'
+import { ReceiptText, FilePlus2, History, UserRound, Package, MapPinned, Plus, Trash2, Save, CircleCheck, CircleAlert, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Pestana, Pestanas, Panel } from '@/components/layout/ModuloUI'
 import { Button } from '@/components/ui/Button'
@@ -10,11 +10,13 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { MapaSelector } from '@/components/MapaSelector'
-import { useClientes, useProductos, useZonas } from '@/services/query/useCatalogos'
+import { useProductos, useZonas } from '@/services/query/useCatalogos'
 import { useCreatePedido } from '@/services/query/usePedidos'
 import { pedidoService } from '@/services/pedidoService'
 import { PRIORIDADES, getPrioridadConfig } from '@/schemas/pedidoSchema'
+import { zonaMasCercana, textoDistancia } from '@/lib/zonas'
 import { cn } from '@/lib/utils'
+import { ClienteSelector } from './ClienteSelector'
 
 const SIN_ZONA = 'SIN_ZONA'
 const ITEM_VACIO = { productoId: '', cantidad: '' }
@@ -30,10 +32,8 @@ const hoyISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6000
 export default function NuevoPedidoPage() {
   const navigate = useNavigate()
   const crear = useCreatePedido()
-  const { data: clientesData } = useClientes({ activo: 'true' }, { page: 1, limit: 100 })
   const { data: productosData } = useProductos({ activo: 'true' }, { page: 1, limit: 100 })
   const { data: zonasData } = useZonas({ activo: 'true' }, { page: 1, limit: 100 })
-  const clientes = clientesData?.data || []
   const productos = productosData?.data || []
   const zonas = zonasData?.data || []
 
@@ -43,27 +43,42 @@ export default function NuevoPedidoPage() {
   })
   const [items, setItems] = useState([{ ...ITEM_VACIO }])
   const [ubicacion, setUbicacion] = useState(null)
+  const [cliente, setCliente] = useState(null)
+  const [sugerida, setSugerida] = useState(null) // { zona, metros } calculada desde el punto de entrega
+  const [zonaManual, setZonaManual] = useState(false) // si el operador eligió la zona, no se sobrescribe
   const [anterior, setAnterior] = useState(null) // último pedido del cliente (para reutilizar su dirección)
   const [error, setError] = useState(null)
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const cliente = clientes.find((c) => c.id === form.clienteId)
   const retiro = form.metodoEntrega === 'RETIRO_EN_ESTABLECIMIENTO'
   const itemsValidos = items.filter((i) => i.productoId && Number(i.cantidad) >= 1)
   const repetidos = new Set(items.map((i) => i.productoId).filter(Boolean)).size !== items.filter((i) => i.productoId).length
   const valido = form.clienteId && itemsValidos.length === items.length && !repetidos && (retiro || form.direccionEntrega.trim())
   const unidades = itemsValidos.reduce((s, i) => s + Number(i.cantidad), 0)
 
-  const elegirCliente = async (id) => {
-    const c = clientes.find((x) => x.id === id)
-    setForm((f) => ({ ...f, clienteId: id, telefonoContacto: f.telefonoContacto || c?.telefono || '' }))
+  const elegirCliente = async (c) => {
+    setCliente(c)
+    setForm((f) => ({ ...f, clienteId: c?.id || '', telefonoContacto: c ? f.telefonoContacto || c.telefono || '' : '' }))
     setAnterior(null)
+    if (!c) return
     try {
-      const { data } = await pedidoService.getByCliente(id, { page: 1, limit: 1 })
+      const { data } = await pedidoService.getByCliente(c.id, { page: 1, limit: 1 })
       setAnterior(data?.[0] || null)
     } catch {
       // sin historial disponible: el formulario sigue igual
     }
+  }
+
+  // Al marcar la entrega se propone la zona con el centro más cercano, salvo que ya se eligiera a mano
+  const cambiarUbicacion = (punto) => {
+    setUbicacion(punto)
+    const s = zonaMasCercana(zonas, punto)
+    setSugerida(s)
+    if (!zonaManual) setForm((f) => ({ ...f, zonaId: s ? s.zona.id : SIN_ZONA }))
+  }
+  const elegirZona = (id) => {
+    setZonaManual(id !== SIN_ZONA)
+    set('zonaId')(id)
   }
 
   const usarAnterior = () => {
@@ -74,7 +89,12 @@ export default function NuevoPedidoPage() {
       zonaId: anterior.zonaId || SIN_ZONA,
       telefonoContacto: anterior.telefonoContacto || f.telefonoContacto,
     }))
-    if (anterior.latitudEntrega && anterior.longitudEntrega) setUbicacion({ lat: Number(anterior.latitudEntrega), lng: Number(anterior.longitudEntrega) })
+    setZonaManual(!!anterior.zonaId)
+    if (anterior.latitudEntrega && anterior.longitudEntrega) {
+      const punto = { lat: Number(anterior.latitudEntrega), lng: Number(anterior.longitudEntrega) }
+      setUbicacion(punto)
+      setSugerida(zonaMasCercana(zonas, punto))
+    }
   }
 
   const cambiarItem = (i, k, v) => setItems((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
@@ -123,10 +143,7 @@ export default function NuevoPedidoPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2 md:col-span-2">
                 <Label htmlFor="np-cliente">Cliente *</Label>
-                <Select value={form.clienteId} onValueChange={elegirCliente}>
-                  <SelectTrigger id="np-cliente"><SelectValue placeholder="Seleccione el cliente…" /></SelectTrigger>
-                  <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.razonSocial}{c.codigo ? ` · ${c.codigo}` : ''}</SelectItem>)}</SelectContent>
-                </Select>
+                <ClienteSelector cliente={cliente} onElegir={elegirCliente} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="np-tel">Teléfono de contacto</Label>
@@ -206,18 +223,33 @@ export default function NuevoPedidoPage() {
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="np-zona">Zona de despacho</Label>
-                      <Select value={form.zonaId} onValueChange={set('zonaId')}>
+                      <Select value={form.zonaId} onValueChange={elegirZona}>
                         <SelectTrigger id="np-zona"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value={SIN_ZONA}>Sin zona asignada</SelectItem>
                           {zonas.map((z) => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                      {sugerida && (
+                        form.zonaId === sugerida.zona.id ? (
+                          <p className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <Sparkles className="h-3.5 w-3.5 text-primary flex-shrink-0" aria-hidden="true" />
+                            Sugerida por la ubicación (a {textoDistancia(sugerida.metros)} del centro de la zona)
+                          </p>
+                        ) : (
+                          <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => elegirZona(sugerida.zona.id)}>
+                            Según la ubicación sería {sugerida.zona.nombre} ({textoDistancia(sugerida.metros)}): usar esa zona
+                          </button>
+                        )
+                      )}
+                      {ubicacion && !sugerida && zonas.some((z) => z.latitudCentro != null) && (
+                        <p className="text-xs text-[#8a3800]">El punto queda lejos de todas las zonas con centro marcado.</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid gap-2">
                     <Label>Ubicación en el mapa (GPS de la entrega)</Label>
-                    <MapaSelector valor={ubicacion} onChange={setUbicacion} />
+                    <MapaSelector valor={ubicacion} onChange={cambiarUbicacion} />
                     <p className="text-xs text-gray-600">Con la ubicación marcada, el repartidor recibe la ruta en su teléfono y el pedido aparece en los mapas de despacho y trazabilidad.</p>
                   </div>
                 </>

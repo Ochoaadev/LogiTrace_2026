@@ -39,10 +39,10 @@ export const CATALOGOS = {
     ],
   },
   clientes: {
-    ruta: 'clientes', titulo: 'Clientes', singular: 'cliente', icon: Store, servicio: clienteService,
+    ruta: 'clientes', titulo: 'Clientes', singular: 'cliente', icon: Store, servicio: clienteService, permisoCrear: 'clientes.create',
     descripcion: 'Comercios, restaurantes y particulares que reciben pedidos en Valera y zonas aledañas.',
     campos: [
-      { name: 'codigo', label: 'Código', required: true, max: 20, soloAlCrear: true, placeholder: 'CLI-006' },
+      { name: 'codigo', label: 'Código', max: 20, soloAlCrear: true, placeholder: 'Automático (CLI-###)', ayuda: 'Déjelo vacío para asignar el siguiente código libre.' },
       { name: 'razonSocial', label: 'Razón social / nombre', required: true, max: 150 },
       {
         name: 'tipoDocumento', label: 'Tipo de documento', type: 'select',
@@ -54,7 +54,7 @@ export const CATALOGOS = {
           { value: 'P', label: 'P · Pasaporte' },
         ],
       },
-      { name: 'numeroDocumento', label: 'N° de documento', max: 30, placeholder: 'J-12345678-9' },
+      { name: 'numeroDocumento', label: 'N° de documento', max: 30, placeholder: 'V-12345678 o J-12345678-9', ayuda: 'Se guarda en formato único: la misma cédula no puede registrarse dos veces.' },
       { name: 'nombreContacto', label: 'Persona de contacto', max: 120 },
       { name: 'telefono', label: 'Teléfono', max: 30, placeholder: '0271-0000000' },
       { name: 'email', label: 'Correo', type: 'email', max: 120 },
@@ -65,16 +65,26 @@ export const CATALOGOS = {
     ],
   },
   zonas: {
-    ruta: 'zonas', titulo: 'Zonas de despacho', singular: 'zona', icon: MapPinned, servicio: zonaService,
+    ruta: 'zonas', titulo: 'Zonas de despacho', singular: 'zona', nuevo: 'Nueva zona', icon: MapPinned, servicio: zonaService,
     descripcion: 'Sectores del eje Valera - Carvajal usados para agrupar pedidos, rutas e indicadores.',
     campos: [
       { name: 'codigo', label: 'Código', required: true, max: 20, soloAlCrear: true, placeholder: 'ZON-009' },
       { name: 'nombre', label: 'Nombre del sector', required: true, max: 100 },
       { name: 'municipio', label: 'Municipio', max: 100, placeholder: 'Valera' },
+      {
+        name: 'centro', type: 'ubicacion', campos: ['latitudCentro', 'longitudCentro'], label: 'Centro de la zona en el mapa',
+        indicacion: 'Haga clic en el centro del sector',
+        ayuda: 'Al registrar un pedido, se sugiere la zona cuyo centro esté más cerca del punto de entrega.',
+      },
     ],
     columnas: [
       { header: 'Zona', valor: (f) => f.nombre },
       { header: 'Municipio', valor: (f) => f.municipio || '—' },
+      {
+        header: 'Centro en el mapa',
+        valor: (f) => (f.latitudCentro != null ? 'Marcado' : 'Sin marcar'),
+        detalle: (f) => (f.latitudCentro != null ? `${Number(f.latitudCentro).toFixed(5)}, ${Number(f.longitudCentro).toFixed(5)}` : 'No participa en la sugerencia'),
+      },
     ],
   },
   vehiculos: {

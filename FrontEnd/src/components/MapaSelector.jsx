@@ -34,7 +34,7 @@ function Centrar({ punto }) {
  * Selector de la ubicación de entrega: clic en el mapa (o arrastrar el marcador) o la posición GPS
  * del equipo. `valor` = { lat, lng } | null.
  */
-export function MapaSelector({ valor, onChange }) {
+export function MapaSelector({ valor, onChange, indicacion = 'Haga clic en el mapa para marcar el punto de entrega', alto = 'h-64' }) {
   const [buscando, setBuscando] = useState(false)
   const [aviso, setAviso] = useState(null)
   const [centrarEn, setCentrarEn] = useState(null)
@@ -56,7 +56,7 @@ export function MapaSelector({ valor, onChange }) {
   return (
     <div className="grid gap-2">
       <div className="relative">
-        <MapContainer center={valor ? [valor.lat, valor.lng] : VALERA} zoom={valor ? 16 : 14} scrollWheelZoom className="h-64 w-full bg-gray-100 z-0">
+        <MapContainer center={valor ? [valor.lat, valor.lng] : VALERA} zoom={valor ? 16 : 14} scrollWheelZoom className={`${alto} w-full bg-gray-100 z-0`}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
           <Clics onElegir={onChange} />
           {centrarEn && <Centrar punto={centrarEn} />}
@@ -72,7 +72,7 @@ export function MapaSelector({ valor, onChange }) {
         {!valor && (
           <p className="pointer-events-none absolute left-14 right-2 top-2 z-[400] flex items-center gap-1.5 bg-white/95 px-2 py-1 text-xs text-gray-700">
             <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" aria-hidden="true" />
-            Haga clic en el mapa para marcar el punto de entrega
+            {indicacion}
           </p>
         )}
       </div>
