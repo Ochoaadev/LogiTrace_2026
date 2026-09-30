@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { idsSinTildes } = require('../../utils/busqueda')
 
 const CAMPOS_CLIENTE = ['codigo', 'razonSocial', 'nombreContacto', 'tipoDocumento', 'numeroDocumento', 'telefono', 'email', 'activo']
 const permitidos = (data) => Object.fromEntries(Object.entries(data).filter(([k, v]) => CAMPOS_CLIENTE.includes(k) && v !== undefined))
@@ -60,20 +61,17 @@ async function listClientes(query) {
   const where = {}
   if (activo !== undefined) where.activo = activo === 'true'
   if (search) {
-    where.OR = [
-      { razonSocial: { contains: search, mode: 'insensitive' } },
-      { codigo: { contains: search, mode: 'insensitive' } },
-      { nombreContacto: { contains: search, mode: 'insensitive' } },
-      { numeroDocumento: { contains: search, mode: 'insensitive' } },
-    ]
+    // Sin distinguir tildes: "maria" encuentra "María"
+    const ids = await idsSinTildes('Cliente', ['razonSocial', 'codigo', 'nombreContacto', 'numeroDocumento'], search)
     // Cédula o RIF escritos sin guiones ni puntos (12.345.678 o 12345678 encuentran V-12345678)
     const digitos = soloDigitos(search)
     if (digitos.length >= 4) {
       const filas = await prisma.$queryRaw`
         SELECT "id" FROM "Cliente"
         WHERE regexp_replace(COALESCE("numeroDocumento", ''), '[^0-9]', '', 'g') LIKE ${'%' + digitos + '%'}`
-      if (filas.length) where.OR.push({ id: { in: filas.map((f) => f.id) } })
+      ids.push(...filas.map((f) => f.id))
     }
+    where.id = { in: ids }
   }
 
   const [clientes, total] = await Promise.all([

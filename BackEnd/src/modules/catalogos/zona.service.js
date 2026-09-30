@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { idsSinTildes } = require('../../utils/busqueda')
 
 // Solo estos campos llegan a la base de datos (antes se pasaba el cuerpo completo de la petición)
 const CAMPOS_ZONA = ['codigo', 'nombre', 'municipio', 'latitudCentro', 'longitudCentro', 'activo']
@@ -13,11 +14,7 @@ async function listZonas(query) {
   const where = {}
   if (activo !== undefined) where.activo = activo === 'true'
   if (search) {
-    where.OR = [
-      { nombre: { contains: search, mode: 'insensitive' } },
-      { codigo: { contains: search, mode: 'insensitive' } },
-      { municipio: { contains: search, mode: 'insensitive' } },
-    ]
+    where.id = { in: await idsSinTildes('ZonaDespacho', ['nombre', 'codigo', 'municipio'], search) }
   }
 
   const [zonas, total] = await Promise.all([

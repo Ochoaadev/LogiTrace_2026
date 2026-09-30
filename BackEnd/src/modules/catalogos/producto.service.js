@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { idsSinTildes } = require('../../utils/busqueda')
 
 async function listProductos(query) {
   const { page, limit, skip } = getPagination(query)
@@ -9,10 +10,7 @@ async function listProductos(query) {
   const where = {}
   if (activo !== undefined) where.activo = activo === 'true'
   if (search) {
-    where.OR = [
-      { nombre: { contains: search, mode: 'insensitive' } },
-      { codigo: { contains: search, mode: 'insensitive' } },
-    ]
+    where.id = { in: await idsSinTildes('Producto', ['nombre', 'codigo'], search) }
   }
 
   const [productos, total] = await Promise.all([
