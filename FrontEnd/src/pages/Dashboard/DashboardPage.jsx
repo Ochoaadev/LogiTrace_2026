@@ -180,8 +180,14 @@ export default function DashboardPage() {
               {etapas.filter((e) => e.valor).map((e) => <span key={e.label} className={e.color} style={{ width: `${(e.valor / totalEtapas) * 100}%` }} />)}
             </div>
           )}
-          <ul className="grid grid-cols-2 gap-x-3 font-mono">
-            {etapas?.map((e) => <li key={e.label}>{e.valor} {e.label}</li>)}
+          {/* Leyenda de la barra: se ajusta al ancho sin partir las etiquetas (antes se montaban) */}
+          <ul className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono">
+            {etapas?.map((e) => (
+              <li key={e.label} className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className={cn('h-2 w-2 flex-shrink-0', e.color)} aria-hidden="true" />
+                {e.valor} {e.label}
+              </li>
+            ))}
           </ul>
         </Tarjeta>
 

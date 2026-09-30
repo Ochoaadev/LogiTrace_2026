@@ -218,6 +218,12 @@ export default function NuevoDespachoPage() {
             <Button type="submit" size="lg" className="w-full" disabled={!valido || crear.isPending} loading={crear.isPending}>
               Programar despacho
             </Button>
+            {/* Antes el botón quedaba deshabilitado sin explicar qué faltaba */}
+            {!valido && (
+              <p className="mt-3 text-xs text-gray-600">
+                {[paradas.length === 0 && 'marque al menos un pedido en la lista', !form.repartidorId && 'elija el repartidor'].filter(Boolean).join(' y ').replace(/^./, (c) => c.toUpperCase())} para habilitar el botón.
+              </p>
+            )}
           </section>
         </div>
       </div>

@@ -223,12 +223,11 @@ body {
 }
 :root[data-theme='dark'] .leaflet-control-attribution a { color: #78a9ff; }
 
-/* Transición suave de colores solo mientras se cambia de tema */
-html.tema-transicion,
-html.tema-transicion *,
-html.tema-transicion *::before,
-html.tema-transicion *::after {
-  transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, fill 300ms ease, stroke 300ms ease !important;
+/* Cambio de tema (View Transitions, ver lib/tema.js): fundido corto y discreto de toda la pantalla */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-out;
 }
 
 /* ============================================================
