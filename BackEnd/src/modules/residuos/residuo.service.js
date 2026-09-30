@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit')
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { codigoUnico } = require('../../utils/codigos')
 
 const TZ = 'America/Caracas'
 const ESTADOS_PENDIENTES = ['REGISTRADO', 'EN_ALMACENAMIENTO']
@@ -26,13 +27,6 @@ const INCLUDE_LISTA = {
   tipoResiduo: { select: { id: true, codigo: true, nombre: true, unidadBase: true } },
   devolucion: { select: { id: true, codigo: true, despachoPedido: { select: { pedido: { select: { id: true, codigo: true } } } } } },
   gestor: { select: { id: true, codigo: true, nombre: true, tipo: true, ubicacion: true } },
-}
-
-function generateCodigo() {
-  const fecha = new Date()
-  const yymmdd = fecha.toISOString().slice(2, 10).replace(/-/g, '')
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `RES-${yymmdd}-${random}`
 }
 
 // Inicio del mes en curso en hora de Venezuela (UTC-4, sin horario de verano)
@@ -144,7 +138,7 @@ async function createResiduo(data, usuarioId) {
   const residuo = await prisma.$transaction(async (tx) => {
     const nuevo = await tx.residuo.create({
       data: {
-        codigo: generateCodigo(),
+        codigo: await codigoUnico('RES', 'residuo', tx),
         tipoResiduoId,
         devolucionId: devolucionId || null,
         gestorId: gestorId || null,

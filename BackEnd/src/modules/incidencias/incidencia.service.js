@@ -1,14 +1,8 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { codigoUnico } = require('../../utils/codigos')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
-
-function generateCodigo() {
-  const fecha = new Date()
-  const yymmdd = fecha.toISOString().slice(2, 10).replace(/-/g, '')
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `INC-${yymmdd}-${random}`
-}
 
 async function listIncidencias(query) {
   const { page, limit, skip } = getPagination(query)
@@ -269,7 +263,7 @@ async function createIncidencia(data, usuarioId) {
   if (!tipo) throw new AppError('Tipo de incidencia no encontrado', 404)
   if (!tipo.activo) throw new AppError('Tipo de incidencia inactivo', 400)
 
-  const codigo = generateCodigo()
+  const codigo = await codigoUnico('INC', 'incidencia')
 
   const incidencia = await prisma.$transaction(async (tx) => {
     const nueva = await tx.incidencia.create({

@@ -1,15 +1,9 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { codigoUnico } = require('../../utils/codigos')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 const { vincularLotesParada } = require('../inventario/asignacionLotes')
-
-function generateCodigo() {
-  const fecha = new Date()
-  const yymmdd = fecha.toISOString().slice(2, 10).replace(/-/g, '')
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `DES-${yymmdd}-${random}`
-}
 
 async function listDespachos(query) {
   const { page, limit, skip } = getPagination(query)
@@ -256,7 +250,7 @@ async function createDespacho(data, usuarioId) {
     if (yaDespachado) throw new AppError(`Pedido ${pedido.codigo} ya fue despachado`, 409)
   }
 
-  const codigo = generateCodigo()
+  const codigo = await codigoUnico('DES', 'despacho')
 
   const despacho = await prisma.$transaction(async (tx) => {
     const nuevo = await tx.despacho.create({

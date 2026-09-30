@@ -1,15 +1,9 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { codigoUnico } = require('../../utils/codigos')
 const { asignarLotesFefo, revertirSalidasPedido } = require('../inventario/asignacionLotes')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
-
-function generateCodigo() {
-  const fecha = new Date()
-  const yymmdd = fecha.toISOString().slice(2, 10).replace(/-/g, '')
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `PED-${yymmdd}-${random}`
-}
 
 function calculateEstadoSiguiente(estadoActual, accion) {
   const transiciones = {
@@ -288,7 +282,7 @@ async function createPedido(data, usuarioId) {
     if (!producto.activo) throw new AppError(`Producto ${producto.nombre} inactivo`, 400)
   }
 
-  const codigo = generateCodigo()
+  const codigo = await codigoUnico('PED', 'pedido')
 
   const pedido = await prisma.$transaction(async (tx) => {
     const nuevo = await tx.pedido.create({

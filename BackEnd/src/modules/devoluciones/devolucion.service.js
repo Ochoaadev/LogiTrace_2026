@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { codigoUnico } = require('../../utils/codigos')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 const { PARAMETROS } = require('../../config/parametros')
 
@@ -14,18 +15,6 @@ async function finalizarDespacho(tx, despachoId) {
   if (despacho.repartidorId) {
     await tx.repartidor.update({ where: { id: despacho.repartidorId }, data: { estado: 'DISPONIBLE' } })
   }
-}
-
-function generateCodigoResiduo() {
-  const yymmdd = new Date().toISOString().slice(2, 10).replace(/-/g, '')
-  return `RES-${yymmdd}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-}
-
-function generateCodigo() {
-  const fecha = new Date()
-  const yymmdd = fecha.toISOString().slice(2, 10).replace(/-/g, '')
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-  return `DEV-${yymmdd}-${random}`
 }
 
 async function listDevoluciones(query) {
@@ -285,7 +274,7 @@ async function createDevolucion(data, usuarioId) {
     }
   }
 
-  const codigo = generateCodigo()
+  const codigo = await codigoUnico('DEV', 'devolucion')
 
   const devolucion = await prisma.$transaction(async (tx) => {
     const nueva = await tx.devolucion.create({
@@ -589,7 +578,7 @@ async function evaluarDetalle(id, datos, usuarioId) {
       if (!tipoResiduo) throw new AppError('Tipo de residuo no encontrado', 404)
       const residuo = await tx.residuo.create({
         data: {
-          codigo: generateCodigoResiduo(),
+          codigo: await codigoUnico('RES', 'residuo', tx),
           tipoResiduoId,
           devolucionId: id,
           cantidad: detalle.cantidad,

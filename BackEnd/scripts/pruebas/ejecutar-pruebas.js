@@ -123,6 +123,32 @@ async function stockCava(productoId) {
   return Number(r._sum.stockActual || 0)
 }
 
+// Cada ejecución consume stock de la cava (unas 200 unidades); sin reiniciar la base con --preparar,
+// las ejecuciones sucesivas lo agotaban y el sistema rechazaba (correctamente) las salidas. Antes de
+// empezar se repone hasta STOCK_MINIMO con una ENTRADA registrada, solo en la base de pruebas.
+const STOCK_MINIMO = 500
+async function asegurarStock(cat, usuarioId) {
+  if (!/\/logitrace_pruebas\?/.test(DB_URL)) throw new Error('La reposición de stock solo se hace en logitrace_pruebas')
+  const actual = await stockCava(cat.producto.id)
+  if (actual >= STOCK_MINIMO) return 0
+  const existencia = await prisma.inventario.findFirst({
+    where: { lote: { productoId: cat.producto.id, estadoCalidad: 'DISPONIBLE' }, ubicacion: { tipo: 'CAVA' } },
+    orderBy: { lote: { fechaVencimiento: 'desc' } },
+  })
+  if (!existencia) throw new Error('No hay un lote DISPONIBLE en cava para reponer. Ejecute --preparar')
+  const falta = STOCK_MINIMO - actual
+  await prisma.$transaction([
+    prisma.inventario.update({ where: { id: existencia.id }, data: { stockActual: { increment: falta } } }),
+    prisma.movimientoInventario.create({
+      data: {
+        tipo: 'ENTRADA', loteId: existencia.loteId, ubicacionDestinoId: existencia.ubicacionId, cantidad: falta,
+        unidad: cat.producto.unidadBase, usuarioId, observaciones: 'Reposición automática para la batería de pruebas',
+      },
+    }),
+  ])
+  return falta
+}
+
 const tiposEvento = async (pedidoId) =>
   (await prisma.eventoTrazabilidad.findMany({ where: { pedidoId }, select: { tipoEvento: true } })).map((e) => e.tipoEvento)
 
@@ -622,6 +648,8 @@ function informe(datos) {
       motivo: await prisma.motivoDevolucion.findFirst({ where: { codigo: 'DEV-003' } }),
     }
     for (const [k, v] of Object.entries(cat)) if (!v || (Array.isArray(v) && !v.length)) throw new Error(`Falta el dato base "${k}". Ejecute primero --preparar`)
+    const repuesto = await asegurarStock(cat, participantes[0].id)
+    if (repuesto) console.log(`Stock de prueba repuesto: +${repuesto} ${cat.producto.unidadBase} de ${cat.producto.codigo} en cava`)
 
     const corridas = []
     for (const p of participantes) {
