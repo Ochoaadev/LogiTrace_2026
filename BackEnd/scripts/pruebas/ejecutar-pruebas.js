@@ -50,6 +50,7 @@ function preparar() {
   correr('npx prisma migrate reset --force --skip-seed')
   correr('node prisma/seed.js')
   correr('node scripts/seed-demo-reportes.js')
+  correr('node scripts/cargar-zonas-valera.js --aplicar')
 }
 
 async function asegurarParticipantes() {
@@ -613,7 +614,8 @@ function informe(datos) {
     const cat = {
       producto: await prisma.producto.findFirst({ where: { codigo: 'TEQ-001' } }),
       clientes: await prisma.cliente.findMany({ where: { activo: true }, orderBy: { codigo: 'asc' } }),
-      zona: await prisma.zonaDespacho.findFirst({ where: { codigo: 'ZON-001' } }),
+      // Zona de despacho vigente de menor código (ZON-009 tras cargar-zonas-valera; ZON-001 si no se cargaron)
+      zona: await prisma.zonaDespacho.findFirst({ where: { activo: true }, orderBy: { codigo: 'asc' } }),
       cava: await prisma.ubicacionAlmacen.findFirst({ where: { tipo: 'CAVA' }, orderBy: { codigo: 'asc' } }),
       tipoIncidencia: await prisma.tipoIncidencia.findFirst({ where: { codigo: 'INC-004' } }),
       tipoRetraso: await prisma.tipoIncidencia.findFirst({ where: { codigo: 'INC-001' } }),

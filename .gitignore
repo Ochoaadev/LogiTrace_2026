@@ -3,6 +3,8 @@ Figma/
 DiagramaERdeLogiTrace.png
 Ejecucion-2
 Ejecucion-3
+# Material de pruebas de la tesis (resultados, protocolo con usuarios): solo en local
+docs/pruebas/
 
 # Environment
 .env
