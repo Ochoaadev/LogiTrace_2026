@@ -38,5 +38,3 @@ export const Badge = React.forwardRef(({ className, variant, size, children, ...
   </span>
 ))
 Badge.displayName = 'Badge'
-
-export { badgeVariants }

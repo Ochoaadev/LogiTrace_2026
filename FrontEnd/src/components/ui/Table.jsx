@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import {
-  legacyCreateColumnHelper as createColumnHelper,
   useLegacyTable as useReactTable,
   getCoreRowModel,
   getSortedRowModel,
@@ -11,55 +10,7 @@ import {
 import { flexRender } from '@tanstack/react-table/flex-render'
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-
-// Re-export for convenience
-export {
-  flexRender,
-  createColumnHelper,
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-}
-
-const columnHelper = createColumnHelper()
-
-export function createTableColumns(columns) {
-  // Varias columnas pueden leer el mismo campo (p. ej. dos columnas sobre "lote"); TanStack usa el
-  // accessorKey como id y React recibía claves repetidas. Se desambigua con un sufijo.
-  const usados = new Set()
-  const idUnico = (base, i) => {
-    const id = usados.has(base) ? `${base}_${i}` : base
-    usados.add(id)
-    return id
-  }
-
-  return columns.map((col, i) => {
-    if (col.accessorKey) {
-      return columnHelper.accessor(col.accessorKey, {
-        id: idUnico(col.id || col.accessorKey, i),
-        header: col.header,
-        // Se pasa la fila de TanStack (no row.original): todas las páginas leen row.original.
-        // Antes llegaba el objeto de datos y row.original era undefined, lo que rompía las listas.
-        cell: col.cell ? (info) => col.cell(info.getValue(), info.row) : (info) => info.getValue(),
-        enableSorting: col.sortable !== false,
-        enableFiltering: col.filterable !== false,
-        size: col.width,
-        meta: col.meta,
-      })
-    }
-    if (col.id) {
-      return columnHelper.display({
-        id: col.id,
-        header: col.header,
-        cell: col.cell,
-        size: col.width,
-      })
-    }
-    return col
-  })
-}
+import { columnHelper, createTableColumns } from '@/components/ui/tablaColumnas'
 
 export function DataTable({
   columns,
@@ -339,5 +290,4 @@ export function DataTable({
   )
 }
 
-export { columnHelper }
 export default DataTable

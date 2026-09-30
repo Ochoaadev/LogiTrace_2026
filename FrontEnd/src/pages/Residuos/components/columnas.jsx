@@ -1,6 +1,6 @@
 import { Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
-import { createTableColumns } from '@/components/ui/Table'
+import { createTableColumns } from '@/components/ui/tablaColumnas'
 import { getEstadoResiduo } from '@/schemas/residuoSchema'
 import { cn } from '@/lib/utils'
 import { cantidad, fecha, fechaHora } from './formato'

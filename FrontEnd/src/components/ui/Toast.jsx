@@ -83,8 +83,6 @@ const ToastDescription = React.forwardRef(({ className, ...props }, ref) => (
 ToastDescription.displayName = ToastPrimitive.Description.displayName
 
 // Types for useToast hook
-const ToastActionElement = ToastAction
-const ToastProps = Toast
 
 export {
   ToastProvider,
@@ -94,7 +92,4 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
-  ToastActionElement,
-  ToastProps,
-  toastVariants,
 }
