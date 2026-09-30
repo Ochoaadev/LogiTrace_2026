@@ -430,6 +430,38 @@ async function prepararPedido(id, usuarioId) {
   return changeEstado(id, 'EN_PREPARACION', usuarioId, 'Preparación iniciada')
 }
 
+/**
+ * Lotes que saldrían de la cava al marcar el pedido "listo para despacho" (misma regla FEFO), sin
+ * mover inventario: se muestra en la confirmación. Si falta stock, responde el mismo error que la
+ * acción real. `sinControl`: productos sin inventario registrado, que saldrían sin descontar stock.
+ */
+async function previsualizarSalida(id) {
+  const pedido = await prisma.pedido.findUnique({ where: { id }, include: { detalles: { include: { producto: true } } } })
+  if (!pedido) throw new AppError('Pedido no encontrado', 404)
+  if (pedido.estado !== 'EN_PREPARACION') throw new AppError('Solo desde EN_PREPARACION', 400)
+
+  const items = await asignarLotesFefo(prisma, pedido)
+  const [lotes, ubicaciones] = await Promise.all([
+    prisma.lote.findMany({ where: { id: { in: items.map((i) => i.loteId) } }, select: { id: true, codigo: true, fechaVencimiento: true, producto: { select: { codigo: true, nombre: true } } } }),
+    prisma.ubicacionAlmacen.findMany({ where: { id: { in: items.map((i) => i.ubicacionId) } }, select: { id: true, nombre: true } }),
+  ])
+  const conStock = new Set(lotes.map((l) => l.producto.codigo))
+  return {
+    salidas: items.map((i) => {
+      const lote = lotes.find((l) => l.id === i.loteId)
+      return {
+        producto: lote?.producto.nombre,
+        lote: lote?.codigo,
+        vence: lote?.fechaVencimiento,
+        ubicacion: ubicaciones.find((u) => u.id === i.ubicacionId)?.nombre,
+        cantidad: i.cantidad,
+        unidad: i.unidad,
+      }
+    }),
+    sinControl: pedido.detalles.filter((d) => !conStock.has(d.producto.codigo)).map((d) => ({ producto: d.producto.nombre, cantidad: Number(d.cantidad), unidad: d.unidad })),
+  }
+}
+
 async function listoParaDespacho(id, usuarioId, itemsPreparados) {
   const pedido = await prisma.pedido.findUnique({ where: { id }, include: { detalles: { include: { producto: true } } } })
   if (!pedido) throw new AppError('Pedido no encontrado', 404)
@@ -509,6 +541,7 @@ async function deletePedido(id) {
 }
 
 module.exports = {
+  previsualizarSalida,
   getResumenPedidos,
   listPedidos,
   getPedidoById,

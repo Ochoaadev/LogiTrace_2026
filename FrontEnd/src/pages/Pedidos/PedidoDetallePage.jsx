@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, Route, XCircle, Truck, AlertCircle, ChevronRight } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -11,6 +12,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
 import { DataTable, createTableColumns } from '@/components/ui/Table'
 import { SkeletonCard } from '@/components/ui/Skeleton'
+import { ConfirmarDialog } from '@/components/ConfirmarDialog'
+import { pedidoService } from '@/services/pedidoService'
 import { usePermissions } from '@/hooks/usePermissions'
 import { usePedido, useAvanzarPedido, useCancelPedido, useAsignarDespacho } from '@/services/query/usePedidos'
 import { useDespachos } from '@/services/query/useDespachos'
@@ -29,6 +32,73 @@ function textoPlazo(p) {
   if (d === 0) return '(hoy)'
   if (d === 1) return '(mañana)'
   return d > 0 ? `(en ${d} días)` : `(vencida hace ${-d} día${d === -1 ? '' : 's'})`
+}
+
+// Acciones difíciles de deshacer: piden confirmación antes de ejecutarse
+const CONFIRMAR = {
+  ENTREGADO: {
+    titulo: (c) => `Registrar la entrega de ${c}`,
+    descripcion: 'Normalmente la registra el repartidor desde «Mi ruta», con quién recibe y su ubicación. Confirme solo si la entrega ya ocurrió.',
+    boton: 'Registrar entrega',
+  },
+  DEVUELTO: {
+    titulo: (c) => `Marcar ${c} como devuelto`,
+    descripcion: 'Indica que el pedido regresó a la planta. Después registre la devolución con su motivo y el estado del producto.',
+    boton: 'Marcar devuelto',
+    peligro: true,
+  },
+  CERRADO: {
+    titulo: (c) => `Cerrar el pedido ${c}`,
+    descripcion: 'El pedido queda cerrado y ya no admite cambios de estado.',
+    boton: 'Cerrar pedido',
+  },
+}
+
+// Confirmación de "listo para despacho": muestra los lotes que saldrán de la cava (FEFO) antes de
+// descontarlos. Si falta stock, lo dice aquí y no deja confirmar.
+function ConfirmarListo({ pedido, onConfirmar, onClose }) {
+  const previa = useQuery({
+    queryKey: ['pedidos', pedido.id, 'salida-prevista'],
+    queryFn: () => pedidoService.salidaPrevista(pedido.id),
+    retry: false,
+    gcTime: 0,
+  })
+  const datos = previa.data?.data
+  return (
+    <ConfirmarDialog
+      titulo={`Marcar ${pedido.codigo} listo para despacho`}
+      descripcion="Al confirmar se descuenta del inventario de la cava (vence primero, sale primero). Si luego se cancela el pedido, el stock vuelve a su ubicación."
+      textoConfirmar="Descontar y marcar listo"
+      deshabilitado={previa.isLoading || previa.isError}
+      onConfirmar={onConfirmar}
+      onClose={onClose}
+    >
+      {previa.isLoading && <p className="text-sm text-gray-600">Calculando los lotes que saldrán…</p>}
+      {previa.isError && <p role="alert" className="bg-danger-light px-3 py-2 text-sm text-[#a2191f]">{previa.error?.message || 'No se pudo calcular la salida'}</p>}
+      {datos && (
+        <div className="grid gap-3 text-sm">
+          {datos.salidas.length > 0 && (
+            <ul className="divide-y divide-gray-100 bg-gray-50">
+              {datos.salidas.map((s, i) => (
+                <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block text-gray-900">{s.producto}</span>
+                    <span className="block font-mono text-xs text-gray-600">Lote {s.lote} · {s.ubicacion}{s.vence ? ` · vence ${fechaSinHora(s.vence)}` : ''}</span>
+                  </span>
+                  <span className="font-mono font-semibold text-gray-900 whitespace-nowrap">−{num(s.cantidad)} {s.unidad}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {datos.sinControl.length > 0 && (
+            <p className="bg-warning-light px-3 py-2 text-xs text-[#684e00]">
+              Sin inventario registrado (salen sin descontar stock): {datos.sinControl.map((d) => `${d.producto} (${num(d.cantidad)} ${d.unidad})`).join(', ')}.
+            </p>
+          )}
+        </div>
+      )}
+    </ConfirmarDialog>
+  )
 }
 
 // Acción de la UI para cada estado destino. EN_RUTA no se ofrece aquí: ocurre al asignar el
@@ -77,6 +147,7 @@ export default function PedidoDetallePage() {
   const avanzar = useAvanzarPedido()
 
   const [dialogo, setDialogo] = useState(null)
+  const [confirmar, setConfirmar] = useState(null) // estado destino pendiente de confirmación
   const [errorAccion, setErrorAccion] = useState(null)
 
   if (isLoading) return <SkeletonCard />
@@ -144,7 +215,7 @@ export default function PedidoDetallePage() {
         <section className="bg-white px-6 py-4 mb-6 flex flex-wrap items-center gap-3" aria-label="Acciones del pedido">
           <span className="label-caps mr-2">Acciones:</span>
           {acciones.map((e) => (
-            <Button key={e} size="sm" onClick={() => ejecutar(e)} disabled={avanzar.isPending} loading={avanzar.isPending && avanzar.variables?.estado === e}>
+            <Button key={e} size="sm" onClick={() => (e === 'LISTO_PARA_DESPACHO' || CONFIRMAR[e] ? setConfirmar(e) : ejecutar(e))} disabled={avanzar.isPending} loading={avanzar.isPending && avanzar.variables?.estado === e}>
               {ACCION[e]}
             </Button>
           ))}
@@ -288,6 +359,19 @@ export default function PedidoDetallePage() {
       </Tabs>
 
       {dialogo === 'cancelar' && <CancelarDialog pedido={p} onClose={() => setDialogo(null)} />}
+      {confirmar === 'LISTO_PARA_DESPACHO' && (
+        <ConfirmarListo pedido={p} onConfirmar={() => avanzar.mutateAsync({ id, estado: confirmar })} onClose={() => setConfirmar(null)} />
+      )}
+      {CONFIRMAR[confirmar] && (
+        <ConfirmarDialog
+          titulo={CONFIRMAR[confirmar].titulo(p.codigo)}
+          descripcion={CONFIRMAR[confirmar].descripcion}
+          textoConfirmar={CONFIRMAR[confirmar].boton}
+          peligro={CONFIRMAR[confirmar].peligro}
+          onConfirmar={() => avanzar.mutateAsync({ id, estado: confirmar })}
+          onClose={() => setConfirmar(null)}
+        />
+      )}
       {dialogo === 'asignar' && <AsignarDespachoDialog pedido={p} onClose={() => setDialogo(null)} />}
     </div>
   )

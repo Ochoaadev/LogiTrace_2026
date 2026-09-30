@@ -65,6 +65,13 @@ router.post(
   pedidoController.prepararPedido
 )
 
+// Solo lectura: lotes que saldrían al marcar "listo para despacho" (para la confirmación)
+router.get(
+  '/:id/salida-prevista',
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
+  pedidoController.previsualizarSalida
+)
+
 router.post(
   '/:id/listo-despacho',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),

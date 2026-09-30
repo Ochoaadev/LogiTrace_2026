@@ -15,6 +15,7 @@ import { PaginacionServidor } from '@/components/ui/PaginacionServidor'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
 import { MapaSelector } from '@/components/MapaSelector'
+import { ConfirmarDialog } from '@/components/ConfirmarDialog'
 import { usePermissions } from '@/hooks/usePermissions'
 import { cn } from '@/lib/utils'
 import { CATALOGOS, ORDEN_CATALOGOS } from './catalogos'
@@ -92,7 +93,7 @@ export default function CatalogoPage({ clave }) {
             {can('catalogos.edit') && (
               <>
                 <button type="button" className={cn(boton, 'text-gray-700')} title="Editar" aria-label={`Editar ${r.codigo}`} onClick={() => setDialogo({ tipo: 'form', registro: r })}><Pencil className="h-4 w-4" /></button>
-                <button type="button" className={cn(boton, r.activo ? 'text-[#8a3800]' : 'text-success')} title={r.activo ? 'Desactivar' : 'Reactivar'} aria-label={`${r.activo ? 'Desactivar' : 'Reactivar'} ${r.codigo}`} disabled={alternar.isPending} onClick={() => cambiarEstado(r)}>
+                <button type="button" className={cn(boton, r.activo ? 'text-[#8a3800]' : 'text-success')} title={r.activo ? 'Desactivar' : 'Reactivar'} aria-label={`${r.activo ? 'Desactivar' : 'Reactivar'} ${r.codigo}`} disabled={alternar.isPending} onClick={() => (r.activo ? setDialogo({ tipo: 'desactivar', registro: r }) : cambiarEstado(r))}>
                   {r.activo ? <Ban className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
                 </button>
               </>
@@ -164,6 +165,19 @@ export default function CatalogoPage({ clave }) {
 
       {dialogo?.tipo === 'form' && (
         <FormularioDialog cat={cat} registro={dialogo.registro} onClose={() => setDialogo(null)} onGuardado={(t) => { invalidar(); setAviso({ tipo: 'ok', texto: t }) }} />
+      )}
+      {dialogo?.tipo === 'desactivar' && (
+        <ConfirmarDialog
+          titulo={`Desactivar ${dialogo.registro.codigo}`}
+          descripcion={`${dialogo.registro.nombre || dialogo.registro.razonSocial || dialogo.registro.codigo} dejará de ofrecerse al registrar nuevas operaciones. El historial que lo usa se conserva y puede reactivarlo cuando quiera.`}
+          textoConfirmar="Desactivar"
+          peligro
+          onConfirmar={async () => {
+            await alternar.mutateAsync(dialogo.registro)
+            setAviso({ tipo: 'ok', texto: `${dialogo.registro.nombre || dialogo.registro.razonSocial || dialogo.registro.codigo} desactivado.` })
+          }}
+          onClose={() => setDialogo(null)}
+        />
       )}
       {dialogo?.tipo === 'eliminar' && (
         <EliminarDialog cat={cat} registro={dialogo.registro} onClose={() => setDialogo(null)} onEliminado={(t) => { invalidar(); setAviso({ tipo: 'ok', texto: t }) }} />

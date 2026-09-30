@@ -61,6 +61,15 @@ async function prepararPedido(req, res, next) {
   }
 }
 
+async function previsualizarSalida(req, res, next) {
+  try {
+    const previa = await pedidoService.previsualizarSalida(req.params.id)
+    return success(res, previa, 'Salida prevista')
+  } catch (err) {
+    next(err)
+  }
+}
+
 async function listoParaDespacho(req, res, next) {
   try {
     const { itemsPreparados } = req.body
@@ -90,6 +99,7 @@ async function getResumenPedidos(req, res, next) {
 }
 
 module.exports = {
+  previsualizarSalida,
   getResumenPedidos,
   listPedidos,
   getPedidoById,

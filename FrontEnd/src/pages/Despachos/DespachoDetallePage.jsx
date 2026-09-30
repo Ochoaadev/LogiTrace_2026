@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogCancel } from '@/components/ui/Dialog'
 import { SkeletonCard } from '@/components/ui/Skeleton'
+import { ConfirmarEstadoDespacho } from '@/components/despachos/ConfirmarEstadoDespacho'
+import { requiereConfirmacion } from '@/schemas/despachoSchema'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDespacho, useUpdateEstadoDespacho, useAsignarRepartidor } from '@/services/query/useDespachos'
 import { useCreateIncidencia } from '@/services/query/useIncidencias'
@@ -141,7 +143,7 @@ export default function DespachoDetallePage() {
                 {accionDespacho(e, d.estado)}
               </Button>
             ) : (
-              <Button key={e} size="sm" onClick={() => ejecutar(e)} disabled={cambiarEstado.isPending} loading={cambiarEstado.isPending && cambiarEstado.variables?.estado === e}>
+              <Button key={e} size="sm" onClick={() => (requiereConfirmacion(e, d.estado) ? setDialogo({ tipo: 'confirmar', estado: e }) : ejecutar(e))} disabled={cambiarEstado.isPending} loading={cambiarEstado.isPending && cambiarEstado.variables?.estado === e}>
                 {accionDespacho(e, d.estado)}
               </Button>
             )
@@ -250,6 +252,9 @@ export default function DespachoDetallePage() {
           onConfirmar={(motivo) => ejecutar(dialogo.estado, motivo)}
           onClose={() => { setDialogo(null); setErrorAccion(null) }}
         />
+      )}
+      {dialogo?.tipo === 'confirmar' && (
+        <ConfirmarEstadoDespacho despacho={d} destino={dialogo.estado} onConfirmar={() => cambiarEstado.mutateAsync({ id, estado: dialogo.estado })} onClose={() => setDialogo(null)} />
       )}
       {dialogo?.tipo === 'repartidor' && <RepartidorDialog despacho={d} onClose={() => setDialogo(null)} />}
       {dialogo?.tipo === 'incidencia' && <IncidenciaDialog despacho={d} parada={dialogo.parada} onClose={() => setDialogo(null)} />}

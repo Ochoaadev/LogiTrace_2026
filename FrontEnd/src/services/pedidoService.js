@@ -10,6 +10,7 @@ export const pedidoService = {
   // Pasos con lógica propia en el backend (verificación de stock, evento de trazabilidad)
   preparar: (id) => api.post(`/pedidos/${id}/preparar`),
   listoDespacho: (id, itemsPreparados) => api.post(`/pedidos/${id}/listo-despacho`, { itemsPreparados }),
+  salidaPrevista: (id) => api.get(`/pedidos/${id}/salida-prevista`),
   getByCliente: (clienteId, params) => api.get('/pedidos', { params: { ...params, clienteId } }),
   getByZona: (zonaId, params) => api.get('/pedidos', { params: { ...params, zonaId } }),
   cancel: (id, motivo) => api.patch(`/pedidos/${id}/estado`, { estado: 'CANCELADO', observaciones: motivo }),

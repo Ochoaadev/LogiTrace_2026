@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useFlujoOperativo, useUpdateEstadoDespacho } from '@/services/query/useDespachos'
+import { ConfirmarEstadoDespacho } from '@/components/despachos/ConfirmarEstadoDespacho'
+import { requiereConfirmacion } from '@/schemas/despachoSchema'
 import { FLUJO_COLUMNAS, getEstadoConfig, getSiguientesEstados } from '@/schemas/despachoSchema'
 import { getPrioridadConfig } from '@/schemas/pedidoSchema'
 import { cn } from '@/lib/utils'
@@ -127,6 +129,7 @@ export default function FlujoOperativoPage() {
 
   const [activo, setActivo] = useState(null)
   const [aviso, setAviso] = useState(null)
+  const [confirmando, setConfirmando] = useState(null) // { despacho, destino } soltado en una etapa que se confirma
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), // permite el clic para abrir el detalle
@@ -150,12 +153,20 @@ export default function FlujoOperativoPage() {
       return
     }
     setAviso(null)
+    if (requiereConfirmacion(destino, origen)) {
+      setConfirmando({ despacho: d, destino })
+      return
+    }
     try {
-      await cambiarEstado.mutateAsync({ id: active.id, estado: destino, observaciones: 'Cambio desde el tablero de flujo operativo' })
-      setAviso({ tipo: 'ok', texto: `${d?.codigo} pasó a "${getEstadoConfig(destino).label}".` })
+      await mover(d, destino)
     } catch (err) {
       setAviso({ tipo: 'error', texto: err?.message || 'No se pudo cambiar el estado' })
     }
+  }
+
+  const mover = async (d, destino) => {
+    await cambiarEstado.mutateAsync({ id: d.id, estado: destino, observaciones: 'Cambio desde el tablero de flujo operativo' })
+    setAviso({ tipo: 'ok', texto: `${d.codigo} pasó a "${getEstadoConfig(destino).label}".` })
   }
 
   return (
@@ -210,6 +221,14 @@ export default function FlujoOperativoPage() {
         </DndContext>
       )}
       <p className="mt-2 text-xs text-gray-600">La columna "Finalizado" muestra los despachos cerrados en los últimos 3 días. Los cancelados se consultan en la lista.</p>
+      {confirmando && (
+        <ConfirmarEstadoDespacho
+          despacho={confirmando.despacho}
+          destino={confirmando.destino}
+          onConfirmar={() => mover(confirmando.despacho, confirmando.destino)}
+          onClose={() => setConfirmando(null)}
+        />
+      )}
     </div>
   )
 }

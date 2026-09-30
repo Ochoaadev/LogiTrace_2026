@@ -17,6 +17,7 @@ import { DataTable, createTableColumns } from '@/components/ui/Table'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useDespachos, useDespachosResumen, useCreateDespacho, useUpdateEstadoDespacho } from '@/services/query/useDespachos'
+import { ConfirmarEstadoDespacho } from '@/components/despachos/ConfirmarEstadoDespacho'
 import { usePedidos } from '@/services/query/usePedidos'
 import { useRepartidores } from '@/services/query/useCatalogos'
 import { useRegistrarTemperatura } from '@/services/query/useTrazabilidad'
@@ -40,6 +41,7 @@ export default function DespachosPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [aviso, setAviso] = useState(null)
+  const [confirmando, setConfirmando] = useState(null) // despacho cuya acción rápida se confirma
   const busqueda = useDeferredValue(search)
 
   const { data, isLoading, isError } = useDespachos(
@@ -52,15 +54,13 @@ export default function DespachosPage() {
 
   const cambiarVista = (v) => { setVista(v); setPage(1) }
 
-  const avanzar = async (d) => {
+  // Las dos acciones rápidas (salida y finalización) se confirman antes de ejecutarse
+  const avanzar = async () => {
+    const d = confirmando
     const [estado] = SIGUIENTE[d.estado]
     setAviso(null)
-    try {
-      await cambiarEstado.mutateAsync({ id: d.id, estado, observaciones: 'Acción rápida desde la lista de despachos' })
-      setAviso({ tipo: 'ok', texto: `${d.codigo}: ${getEstadoConfig(estado).label.toLowerCase()}.` })
-    } catch (err) {
-      setAviso({ tipo: 'error', texto: err?.message || 'No se pudo cambiar el estado' })
-    }
+    await cambiarEstado.mutateAsync({ id: d.id, estado, observaciones: 'Acción rápida desde la lista de despachos' })
+    setAviso({ tipo: 'ok', texto: `${d.codigo}: ${getEstadoConfig(estado).label.toLowerCase()}.` })
   }
 
   const columnas = createTableColumns([
@@ -155,7 +155,7 @@ export default function DespachosPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => avanzar(d)}
+                onClick={() => setConfirmando(d)}
                 disabled={cambiarEstado.isPending}
                 loading={cambiarEstado.isPending && cambiarEstado.variables?.id === d.id}
               >
@@ -323,6 +323,9 @@ export default function DespachosPage() {
           )}
         </Panel>
       </div>
+      {confirmando && (
+        <ConfirmarEstadoDespacho despacho={confirmando} destino={SIGUIENTE[confirmando.estado][0]} onConfirmar={avanzar} onClose={() => setConfirmando(null)} />
+      )}
     </div>
   )
 }

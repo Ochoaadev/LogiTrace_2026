@@ -45,6 +45,9 @@ export const ACCION_DESPACHO = {
   CANCELADO: 'Cancelar despacho',
 }
 
+/** La salida a ruta (desde preparación) y la finalización piden confirmación; reanudar tras una incidencia no. */
+export const requiereConfirmacion = (destino, origen) => (destino === 'EN_RUTA' && origen === 'PREPARANDO') || destino === 'FINALIZADO'
+
 // Columnas del tablero de flujo operativo (los cancelados se consultan en la lista)
 export const FLUJO_COLUMNAS = ESTADOS_DESPACHO.filter((e) => e.value !== 'CANCELADO')
 
