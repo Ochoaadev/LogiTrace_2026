@@ -40,6 +40,7 @@ const ADMIN_ITEMS = [
   { to: '/catalogos/productos', label: 'Productos', permission: 'catalogos.list' },
   { to: '/catalogos/clientes', label: 'Clientes', permission: 'catalogos.list' },
   { to: '/catalogos/zonas', label: 'Zonas de Despacho', permission: 'catalogos.list' },
+  { to: '/catalogos/tipos-sector', label: 'Tipos de Sector', permission: 'catalogos.list' },
   { to: '/catalogos/vehiculos', label: 'Vehículos', permission: 'catalogos.list' },
   { to: '/catalogos/tipos-incidencia', label: 'Tipos de Incidencia', permission: 'catalogos.list' },
   { to: '/catalogos/motivos-devolucion', label: 'Motivos de Devolución', permission: 'catalogos.list' },

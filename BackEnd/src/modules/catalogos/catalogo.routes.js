@@ -18,6 +18,11 @@ const {
   updateZonaValidation,
 } = require('./zona.validation')
 const {
+  listTiposSectorValidation,
+  createTipoSectorValidation,
+  updateTipoSectorValidation,
+} = require('./tipoSector.validation')
+const {
   listVehiculosValidation,
   createVehiculoValidation,
   updateVehiculoValidation,
@@ -50,6 +55,7 @@ const { roleMiddleware } = require('../../middlewares/roleMiddleware')
 const productoController = require('./producto.controller')
 const clienteController = require('./cliente.controller')
 const zonaController = require('./zona.controller')
+const tipoSectorController = require('./tipoSector.controller')
 const vehiculoController = require('./vehiculo.controller')
 const tipoIncidenciaController = require('./tipoIncidencia.controller')
 const motivoDevolucionController = require('./motivoDevolucion.controller')
@@ -87,6 +93,15 @@ router.get('/zonas/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR
 router.post('/zonas', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), createZonaValidation, validationMiddleware, zonaController.createZona)
 router.put('/zonas/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), updateZonaValidation, validationMiddleware, zonaController.updateZona)
 router.delete('/zonas/:id', roleMiddleware('ADMINISTRADOR'), zonaController.deleteZona)
+
+// ============================================================
+// TIPOS DE SECTOR (uso del suelo)
+// ============================================================
+router.get('/tipos-sector', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'), listTiposSectorValidation, validationMiddleware, tipoSectorController.listTiposSector)
+router.get('/tipos-sector/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'), tipoSectorController.getTipoSectorById)
+router.post('/tipos-sector', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), createTipoSectorValidation, validationMiddleware, tipoSectorController.createTipoSector)
+router.put('/tipos-sector/:id', roleMiddleware('ADMINISTRADOR', 'SUPERVISOR'), updateTipoSectorValidation, validationMiddleware, tipoSectorController.updateTipoSector)
+router.delete('/tipos-sector/:id', roleMiddleware('ADMINISTRADOR'), tipoSectorController.deleteTipoSector)
 
 // ============================================================
 // VEHÍCULOS

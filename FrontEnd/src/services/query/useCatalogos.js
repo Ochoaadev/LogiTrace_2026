@@ -17,6 +17,14 @@ export function useZonas(filters = {}, pagination = { page: 1, limit: 10 }) {
   })
 }
 
+export function useTiposSector(filters = {}, pagination = { page: 1, limit: 10 }) {
+  return useQuery({
+    queryKey: ['catalogos', 'tipos-sector', filters, pagination],
+    queryFn: () => catalogoService.getTiposSector({ ...filters, ...pagination }),
+    staleTime: 60_000,
+  })
+}
+
 export function useProductos(filters = {}, pagination = { page: 1, limit: 10 }) {
   return useQuery({
     queryKey: ['catalogos', 'productos', filters, pagination],

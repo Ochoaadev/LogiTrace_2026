@@ -1,21 +1,30 @@
 import { distanciaMetros } from '@/lib/useSeguimientoGPS'
 
-// Más allá de esta distancia al centro más próximo no se sugiere zona (el punto queda fuera del área atendida)
+// Áreas sin radio: más allá de esta distancia a su centro no se sugieren
 export const RADIO_SUGERENCIA_M = 6000
 
 /**
- * Zona cuyo centro está más cerca del punto de entrega. Solo cuentan las zonas con centro marcado
- * en el catálogo. Devuelve { zona, metros } o null.
+ * Área (zona de despacho o tipo de sector) que corresponde a un punto del mapa.
+ * - Con radio de cobertura: gana la más pequeña que contenga el punto. Así un área central
+ *   (radio corto) se impone a la periferia que la rodea, y esta a la rural.
+ * - Sin radio: la de centro más cercano, hasta RADIO_SUGERENCIA_M.
+ * Solo cuentan las áreas con centro marcado. Devuelve { zona, metros } o null.
+ * (La misma regla está en BackEnd/src/utils/areas.js.)
  */
-export function zonaMasCercana(zonas, punto) {
+export function areaSugerida(areas, punto) {
   if (!punto) return null
-  let mejor = null
-  for (const zona of zonas) {
+  let dentro = null
+  let cercana = null
+  for (const zona of areas) {
     if (zona.latitudCentro == null || zona.longitudCentro == null) continue
     const metros = distanciaMetros(punto, { lat: Number(zona.latitudCentro), lng: Number(zona.longitudCentro) })
-    if (!mejor || metros < mejor.metros) mejor = { zona, metros }
+    if (zona.radioMetros) {
+      if (metros <= zona.radioMetros && (!dentro || zona.radioMetros < dentro.zona.radioMetros)) dentro = { zona, metros }
+    } else if (metros <= RADIO_SUGERENCIA_M && (!cercana || metros < cercana.metros)) {
+      cercana = { zona, metros }
+    }
   }
-  return mejor && mejor.metros <= RADIO_SUGERENCIA_M ? mejor : null
+  return dentro || cercana
 }
 
 export const textoDistancia = (m) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`)

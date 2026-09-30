@@ -61,6 +61,7 @@ async function listPedidos(query) {
       include: {
         cliente: { select: { id: true, codigo: true, razonSocial: true } },
         zona: { select: { id: true, codigo: true, nombre: true } },
+        tipoSector: { select: { id: true, codigo: true, nombre: true } },
         creadoPor: { select: { id: true, nombre: true, codigo: true } },
         detalles: { select: { cantidad: true, unidad: true, producto: { select: { nombre: true } } } },
         // Despacho vigente: repartidor y vehículo que lleva el pedido
@@ -236,6 +237,7 @@ async function getPedidoById(id) {
     include: {
       cliente: true,
       zona: true,
+      tipoSector: { select: { id: true, codigo: true, nombre: true } },
       creadoPor: { select: { id: true, nombre: true, codigo: true } },
       detalles: {
         include: {
@@ -263,7 +265,7 @@ async function getPedidoById(id) {
 
 // Campos del pedido que se pueden guardar desde la API. Antes se pasaba el cuerpo completo a
 // Prisma: la validación aceptaba "fechaEntrega" sin que existiera la columna y el registro fallaba.
-const CAMPOS_PEDIDO = ['fechaEntrega', 'prioridad', 'metodoEntrega', 'zonaId', 'direccionEntrega', 'referenciaEntrega', 'latitudEntrega', 'longitudEntrega', 'telefonoContacto', 'observaciones']
+const CAMPOS_PEDIDO = ['fechaEntrega', 'prioridad', 'metodoEntrega', 'zonaId', 'tipoSectorId', 'direccionEntrega', 'referenciaEntrega', 'latitudEntrega', 'longitudEntrega', 'telefonoContacto', 'observaciones']
 
 function camposPermitidos(data) {
   const limpio = {}

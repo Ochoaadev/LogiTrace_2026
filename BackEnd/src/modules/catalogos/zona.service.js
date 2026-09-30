@@ -4,7 +4,7 @@ const { AppError } = require('../../utils/AppError')
 const { idsSinTildes } = require('../../utils/busqueda')
 
 // Solo estos campos llegan a la base de datos (antes se pasaba el cuerpo completo de la petición)
-const CAMPOS_ZONA = ['codigo', 'nombre', 'municipio', 'latitudCentro', 'longitudCentro', 'activo']
+const CAMPOS_ZONA = ['codigo', 'nombre', 'municipio', 'latitudCentro', 'longitudCentro', 'radioMetros', 'activo']
 const permitidos = (data) => Object.fromEntries(Object.entries(data).filter(([k, v]) => CAMPOS_ZONA.includes(k) && v !== undefined))
 
 async function listZonas(query) {

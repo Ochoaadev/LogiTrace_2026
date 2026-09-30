@@ -10,11 +10,11 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select'
 import { MapaSelector } from '@/components/MapaSelector'
-import { useProductos, useZonas } from '@/services/query/useCatalogos'
+import { useProductos, useZonas, useTiposSector } from '@/services/query/useCatalogos'
 import { useCreatePedido } from '@/services/query/usePedidos'
 import { pedidoService } from '@/services/pedidoService'
 import { PRIORIDADES, getPrioridadConfig } from '@/schemas/pedidoSchema'
-import { zonaMasCercana, textoDistancia } from '@/lib/zonas'
+import { areaSugerida, textoDistancia } from '@/lib/zonas'
 import { cn } from '@/lib/utils'
 import { ClienteSelector } from './ClienteSelector'
 
@@ -22,6 +22,37 @@ const SIN_ZONA = 'SIN_ZONA'
 const ITEM_VACIO = { productoId: '', cantidad: '' }
 const mensaje = (err, porDefecto) => err?.errors?.map((e) => e.mensaje).join(' · ') || err?.message || porDefecto
 const hoyISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+
+/** Selector de zona de despacho o tipo de sector con la sugerencia calculada desde el mapa. */
+function CampoArea({ id, etiqueta, vacio, genero, valor, opciones, sugerida, ubicacion, onElegir }) {
+  return (
+    <div className="grid gap-2 content-start">
+      <Label htmlFor={id}>{etiqueta}</Label>
+      <Select value={valor} onValueChange={onElegir}>
+        <SelectTrigger id={id}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SIN_ZONA}>{vacio}</SelectItem>
+          {opciones.map((o) => <SelectItem key={o.id} value={o.id}>{o.nombre}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {sugerida && (
+        valor === sugerida.zona.id ? (
+          <p className="flex items-center gap-1.5 text-xs text-gray-600">
+            <Sparkles className="h-3.5 w-3.5 text-primary flex-shrink-0" aria-hidden="true" />
+            Sugerido por la ubicación (a {textoDistancia(sugerida.metros)} del centro)
+          </p>
+        ) : (
+          <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => onElegir(sugerida.zona.id)}>
+            Según la ubicación: {sugerida.zona.nombre}. Usar
+          </button>
+        )
+      )}
+      {ubicacion && !sugerida && opciones.some((o) => o.latitudCentro != null) && (
+        <p className="text-xs text-[#8a3800]">El punto queda fuera de las áreas marcadas: elija {genero} a mano.</p>
+      )}
+    </div>
+  )
+}
 
 /**
  * Registro de pedidos ("emisión rápida"). Antes la pantalla enviaba los productos en un campo que
@@ -34,18 +65,21 @@ export default function NuevoPedidoPage() {
   const crear = useCreatePedido()
   const { data: productosData } = useProductos({ activo: 'true' }, { page: 1, limit: 100 })
   const { data: zonasData } = useZonas({ activo: 'true' }, { page: 1, limit: 100 })
+  const { data: sectoresData } = useTiposSector({ activo: 'true' }, { page: 1, limit: 100 })
   const productos = productosData?.data || []
   const zonas = zonasData?.data || []
+  const sectores = sectoresData?.data || []
 
   const [form, setForm] = useState({
     clienteId: '', telefonoContacto: '', metodoEntrega: 'DOMICILIO', direccionEntrega: '', referenciaEntrega: '',
-    zonaId: SIN_ZONA, prioridad: 'NORMAL', fechaEntrega: '', observaciones: '',
+    zonaId: SIN_ZONA, tipoSectorId: SIN_ZONA, prioridad: 'NORMAL', fechaEntrega: '', observaciones: '',
   })
   const [items, setItems] = useState([{ ...ITEM_VACIO }])
   const [ubicacion, setUbicacion] = useState(null)
   const [cliente, setCliente] = useState(null)
-  const [sugerida, setSugerida] = useState(null) // { zona, metros } calculada desde el punto de entrega
-  const [zonaManual, setZonaManual] = useState(false) // si el operador eligió la zona, no se sobrescribe
+  // Zona de despacho y tipo de sector sugeridos desde el punto de entrega: { zonaId: {zona, metros}, tipoSectorId: … }
+  const [sugeridas, setSugeridas] = useState({})
+  const [manual, setManual] = useState({}) // lo que el operador eligió a mano no se sobrescribe
   const [anterior, setAnterior] = useState(null) // último pedido del cliente (para reutilizar su dirección)
   const [error, setError] = useState(null)
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
@@ -69,16 +103,22 @@ export default function NuevoPedidoPage() {
     }
   }
 
-  // Al marcar la entrega se propone la zona con el centro más cercano, salvo que ya se eligiera a mano
-  const cambiarUbicacion = (punto) => {
+  // Al marcar la entrega se proponen zona y sector (el área más pequeña que contenga el punto),
+  // salvo en los campos que el operador ya eligió a mano
+  const calcularSugeridas = (punto) => ({ zonaId: areaSugerida(zonas, punto), tipoSectorId: areaSugerida(sectores, punto) })
+  const cambiarUbicacion = (punto, fijados = manual) => {
     setUbicacion(punto)
-    const s = zonaMasCercana(zonas, punto)
-    setSugerida(s)
-    if (!zonaManual) setForm((f) => ({ ...f, zonaId: s ? s.zona.id : SIN_ZONA }))
+    const s = calcularSugeridas(punto)
+    setSugeridas(s)
+    setForm((f) => {
+      const nuevo = { ...f }
+      for (const k of ['zonaId', 'tipoSectorId']) if (!fijados[k]) nuevo[k] = s[k] ? s[k].zona.id : SIN_ZONA
+      return nuevo
+    })
   }
-  const elegirZona = (id) => {
-    setZonaManual(id !== SIN_ZONA)
-    set('zonaId')(id)
+  const elegirArea = (campo) => (id) => {
+    setManual((m) => ({ ...m, [campo]: id !== SIN_ZONA }))
+    set(campo)(id)
   }
 
   const usarAnterior = () => {
@@ -89,11 +129,13 @@ export default function NuevoPedidoPage() {
       zonaId: anterior.zonaId || SIN_ZONA,
       telefonoContacto: anterior.telefonoContacto || f.telefonoContacto,
     }))
-    setZonaManual(!!anterior.zonaId)
+    // La zona del pedido anterior se respeta solo si sigue vigente
+    const zonaVigente = zonas.some((z) => z.id === anterior.zonaId)
+    const fijados = { zonaId: zonaVigente }
+    setManual(fijados)
+    if (!zonaVigente) setForm((f) => ({ ...f, zonaId: SIN_ZONA }))
     if (anterior.latitudEntrega && anterior.longitudEntrega) {
-      const punto = { lat: Number(anterior.latitudEntrega), lng: Number(anterior.longitudEntrega) }
-      setUbicacion(punto)
-      setSugerida(zonaMasCercana(zonas, punto))
+      cambiarUbicacion({ lat: Number(anterior.latitudEntrega), lng: Number(anterior.longitudEntrega) }, fijados)
     }
   }
 
@@ -110,6 +152,7 @@ export default function NuevoPedidoPage() {
         direccionEntrega: retiro ? 'Retiro en planta El Murachí' : form.direccionEntrega.trim(),
         ...(form.referenciaEntrega.trim() && { referenciaEntrega: form.referenciaEntrega.trim() }),
         ...(form.zonaId !== SIN_ZONA && { zonaId: form.zonaId }),
+        ...(!retiro && form.tipoSectorId !== SIN_ZONA && { tipoSectorId: form.tipoSectorId }),
         ...(form.telefonoContacto.trim() && { telefonoContacto: form.telefonoContacto.trim() }),
         ...(form.fechaEntrega && { fechaEntrega: new Date(`${form.fechaEntrega}T12:00:00`).toISOString() }),
         ...(form.observaciones.trim() && { observaciones: form.observaciones.trim() }),
@@ -216,36 +259,15 @@ export default function NuevoPedidoPage() {
                     <Label htmlFor="np-dir">Dirección de entrega *</Label>
                     <Textarea id="np-dir" rows={2} maxLength={500} placeholder="Av. / calle, sector, edificio o local…" value={form.direccionEntrega} onChange={(e) => set('direccionEntrega')(e.target.value)} />
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="np-ref">Punto de referencia</Label>
+                    <Input id="np-ref" maxLength={180} placeholder="Frente a la plaza, portón azul…" value={form.referenciaEntrega} onChange={(e) => set('referenciaEntrega')(e.target.value)} />
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="np-ref">Punto de referencia</Label>
-                      <Input id="np-ref" maxLength={180} placeholder="Frente a la plaza, portón azul…" value={form.referenciaEntrega} onChange={(e) => set('referenciaEntrega')(e.target.value)} />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="np-zona">Zona de despacho</Label>
-                      <Select value={form.zonaId} onValueChange={elegirZona}>
-                        <SelectTrigger id="np-zona"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={SIN_ZONA}>Sin zona asignada</SelectItem>
-                          {zonas.map((z) => <SelectItem key={z.id} value={z.id}>{z.nombre}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      {sugerida && (
-                        form.zonaId === sugerida.zona.id ? (
-                          <p className="flex items-center gap-1.5 text-xs text-gray-600">
-                            <Sparkles className="h-3.5 w-3.5 text-primary flex-shrink-0" aria-hidden="true" />
-                            Sugerida por la ubicación (a {textoDistancia(sugerida.metros)} del centro de la zona)
-                          </p>
-                        ) : (
-                          <button type="button" className="text-left text-xs text-primary hover:underline" onClick={() => elegirZona(sugerida.zona.id)}>
-                            Según la ubicación sería {sugerida.zona.nombre} ({textoDistancia(sugerida.metros)}): usar esa zona
-                          </button>
-                        )
-                      )}
-                      {ubicacion && !sugerida && zonas.some((z) => z.latitudCentro != null) && (
-                        <p className="text-xs text-[#8a3800]">El punto queda lejos de todas las zonas con centro marcado.</p>
-                      )}
-                    </div>
+                    <CampoArea id="np-zona" etiqueta="Zona de despacho" vacio="Sin zona asignada" genero="la zona"
+                      valor={form.zonaId} opciones={zonas} sugerida={sugeridas.zonaId} ubicacion={ubicacion} onElegir={elegirArea('zonaId')} />
+                    <CampoArea id="np-sector" etiqueta="Tipo de sector" vacio="Sin tipo de sector" genero="el sector"
+                      valor={form.tipoSectorId} opciones={sectores} sugerida={sugeridas.tipoSectorId} ubicacion={ubicacion} onElegir={elegirArea('tipoSectorId')} />
                   </div>
                   <div className="grid gap-2">
                     <Label>Ubicación en el mapa (GPS de la entrega)</Label>

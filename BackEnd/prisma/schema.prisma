@@ -263,12 +263,32 @@ model ZonaDespacho {
   municipio   String?  @db.VarChar(100)
   latitudCentro  Decimal? @db.Decimal(9, 6) // punto de referencia para sugerir la zona de un pedido
   longitudCentro Decimal? @db.Decimal(9, 6)
+  radioMetros    Int?     // cobertura: el pedido cae en la zona más pequeña que lo contenga
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
 
   pedidos Pedido[]
   rutas   Ruta[]
+
+  @@index([activo])
+}
+
+// Tipo de sector urbano según uso del suelo (comercial, residencial, mixto, industrial, equipamiento).
+// Es independiente de la zona de despacho, que responde a la logística de entrega.
+model TipoSector {
+  id             String   @id @default(uuid()) @db.Uuid
+  codigo         String   @unique @db.VarChar(20)
+  nombre         String   @db.VarChar(100)
+  descripcion    String?
+  latitudCentro  Decimal? @db.Decimal(9, 6)
+  longitudCentro Decimal? @db.Decimal(9, 6)
+  radioMetros    Int?
+  activo         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  pedidos Pedido[]
 
   @@index([activo])
 }
@@ -433,6 +453,7 @@ model Pedido {
   longitudEntrega  Decimal?        @db.Decimal(9, 6)
   telefonoContacto String?         @db.VarChar(30)
   fechaEntrega     DateTime?       @db.Date // fecha de entrega solicitada por el cliente
+  tipoSectorId     String?         @db.Uuid
   total            Decimal?        @db.Decimal(10, 2)
   observaciones    String?
   creadoPorId      String?         @db.Uuid
@@ -441,6 +462,7 @@ model Pedido {
 
   cliente          Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   zona             ZonaDespacho?     @relation(fields: [zonaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tipoSector       TipoSector?       @relation(fields: [tipoSectorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   creadoPor        Usuario?          @relation("PedidoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   detalles         DetallePedido[]
   despachos        DespachoPedido[]

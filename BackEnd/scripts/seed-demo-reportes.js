@@ -97,7 +97,10 @@ async function crear() {
   }
 
   // Volumen por sector (eje Valera): el centro concentra la mayor parte
-  const SECTORES = [['ZON-001', 40], ['ZON-002', 24], ['ZON-003', 18], ['ZON-006', 12], ['ZON-004', 6]].filter(([z]) => zonas[z])
+  // Zonas de despacho vigentes (scripts/cargar-zonas-valera.js); si no se han cargado, las del seed base
+  const SECTORES = (zonas['ZON-009']
+    ? [['ZON-009', 45], ['ZON-010', 45], ['ZON-011', 10]]
+    : [['ZON-001', 40], ['ZON-002', 24], ['ZON-003', 18], ['ZON-006', 12], ['ZON-004', 6]]).filter(([z]) => zonas[z])
   const CAUSAS = [['INC-004', 40], ['INC-001', 25], ['INC-003', 15], ['INC-002', 10], ['INC-005', 10]].filter(([c]) => tiposIncidencia[c])
   const MOTIVOS = [['DEV-003', 35], ['DEV-005', 30], ['DEV-001', 25], ['DEV-002', 10]].filter(([m]) => motivos[m])
 

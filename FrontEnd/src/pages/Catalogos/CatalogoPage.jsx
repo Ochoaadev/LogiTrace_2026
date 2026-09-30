@@ -201,7 +201,7 @@ function FormularioDialog({ cat, registro, onClose, onGuardado }) {
         // Se envía como dos columnas; al editar, null borra el punto
         if (v || editando) c.campos.forEach((k, i) => { datos[k] = v ? Number((i === 0 ? v.lat : v.lng).toFixed(6)) : null })
       } else if (c.type === 'check') datos[c.name] = !!v
-      else if (c.type === 'number') { if (v !== '') datos[c.name] = Number(v) }
+      else if (c.type === 'number') { if (v !== '') datos[c.name] = Number(v); else if (editando && c.anulable) datos[c.name] = null }
       else if (c.soloAlCrear) datos[c.name] = String(v).trim().toUpperCase()
       else if (String(v).trim() || editando) datos[c.name] = String(v).trim()
     }
@@ -255,7 +255,7 @@ function FormularioDialog({ cat, registro, onClose, onGuardado }) {
                   <Input
                     id={id}
                     type={c.type === 'number' ? 'number' : c.type === 'email' ? 'email' : 'text'}
-                    step={c.type === 'number' ? '0.01' : undefined}
+                    step={c.type === 'number' ? c.step || '0.01' : undefined}
                     min={c.type === 'number' ? '0' : undefined}
                     required={c.required}
                     maxLength={c.max}

@@ -1,6 +1,6 @@
-import { Package, Store, MapPinned, Truck, TriangleAlert, Undo2, Recycle, Building2 } from 'lucide-react'
+import { Package, Store, MapPinned, Map as MapaIcono, Truck, TriangleAlert, Undo2, Recycle, Building2 } from 'lucide-react'
 import {
-  productoService, clienteService, zonaService, vehiculoService, tipoIncidenciaService,
+  productoService, clienteService, zonaService, tipoSectorService, vehiculoService, tipoIncidenciaService,
   motivoDevolucionService, tipoResiduoService, gestorResiduoService,
 } from '@/services/catalogoService'
 
@@ -66,7 +66,7 @@ export const CATALOGOS = {
   },
   zonas: {
     ruta: 'zonas', titulo: 'Zonas de despacho', singular: 'zona', nuevo: 'Nueva zona', icon: MapPinned, servicio: zonaService,
-    descripcion: 'Sectores del eje Valera - Carvajal usados para agrupar pedidos, rutas e indicadores.',
+    descripcion: 'Cobertura logística de las entregas (centro, periferia, rural): agrupa pedidos, rutas e indicadores.',
     campos: [
       { name: 'codigo', label: 'Código', required: true, max: 20, soloAlCrear: true, placeholder: 'ZON-009' },
       { name: 'nombre', label: 'Nombre del sector', required: true, max: 100 },
@@ -74,7 +74,11 @@ export const CATALOGOS = {
       {
         name: 'centro', type: 'ubicacion', campos: ['latitudCentro', 'longitudCentro'], label: 'Centro de la zona en el mapa',
         indicacion: 'Haga clic en el centro del sector',
-        ayuda: 'Al registrar un pedido, se sugiere la zona cuyo centro esté más cerca del punto de entrega.',
+        ayuda: 'Punto de referencia de la zona.',
+      },
+      {
+        name: 'radioMetros', label: 'Radio de cobertura (metros)', type: 'number', step: '1', anulable: true,
+        ayuda: 'Se sugiere el área más pequeña que contenga el punto de entrega. Sin radio, cuenta el centro más cercano.',
       },
     ],
     columnas: [
@@ -82,7 +86,32 @@ export const CATALOGOS = {
       { header: 'Municipio', valor: (f) => f.municipio || '—' },
       {
         header: 'Centro en el mapa',
-        valor: (f) => (f.latitudCentro != null ? 'Marcado' : 'Sin marcar'),
+        valor: (f) => (f.latitudCentro != null ? (f.radioMetros ? `Radio ${Number(f.radioMetros).toLocaleString('es-VE')} m` : 'Marcado') : 'Sin marcar'),
+        detalle: (f) => (f.latitudCentro != null ? `${Number(f.latitudCentro).toFixed(5)}, ${Number(f.longitudCentro).toFixed(5)}` : 'No participa en la sugerencia'),
+      },
+    ],
+  },
+  'tipos-sector': {
+    ruta: 'tipos-sector', titulo: 'Tipos de sector', singular: 'tipo de sector', icon: MapaIcono, servicio: tipoSectorService,
+    descripcion: 'Uso del suelo del punto de entrega (comercial, residencial, mixto, industrial, equipamiento), independiente de la zona de despacho.',
+    campos: [
+      { name: 'codigo', label: 'Código', required: true, max: 20, soloAlCrear: true, placeholder: 'SEC-06' },
+      { name: 'nombre', label: 'Nombre', required: true, max: 100 },
+      { name: 'descripcion', label: 'Sectores que abarca / descripción', type: 'textarea', max: 1000 },
+      {
+        name: 'centro', type: 'ubicacion', campos: ['latitudCentro', 'longitudCentro'], label: 'Centro en el mapa',
+        indicacion: 'Haga clic en el punto de referencia del sector',
+      },
+      {
+        name: 'radioMetros', label: 'Radio de cobertura (metros)', type: 'number', step: '1', anulable: true,
+        ayuda: 'Se sugiere el área más pequeña que contenga el punto de entrega. Sin radio, cuenta el centro más cercano.',
+      },
+    ],
+    columnas: [
+      { header: 'Tipo de sector', valor: (f) => f.nombre, detalle: (f) => f.descripcion },
+      {
+        header: 'Centro en el mapa',
+        valor: (f) => (f.latitudCentro != null ? (f.radioMetros ? `Radio ${Number(f.radioMetros).toLocaleString('es-VE')} m` : 'Marcado') : 'Sin marcar'),
         detalle: (f) => (f.latitudCentro != null ? `${Number(f.latitudCentro).toFixed(5)}, ${Number(f.longitudCentro).toFixed(5)}` : 'No participa en la sugerencia'),
       },
     ],
@@ -155,4 +184,4 @@ export const CATALOGOS = {
   },
 }
 
-export const ORDEN_CATALOGOS = ['productos', 'clientes', 'zonas', 'vehiculos', 'tipos-incidencia', 'motivos-devolucion', 'tipos-residuo', 'gestores-residuo']
+export const ORDEN_CATALOGOS = ['productos', 'clientes', 'zonas', 'tipos-sector', 'vehiculos', 'tipos-incidencia', 'motivos-devolucion', 'tipos-residuo', 'gestores-residuo']

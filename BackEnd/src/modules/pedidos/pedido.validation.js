@@ -16,6 +16,9 @@ const createPedidoValidation = [
   body('zonaId')
     .optional()
     .isUUID().withMessage('Zona inválida'),
+  body('tipoSectorId')
+    .optional()
+    .isUUID().withMessage('Tipo de sector inválido'),
   body('direccionEntrega')
     .notEmpty().withMessage('La dirección de entrega es obligatoria')
     .isLength({ max: 500 }).withMessage('Dirección muy larga'),
@@ -64,6 +67,9 @@ const updatePedidoValidation = [
   body('zonaId')
     .optional()
     .isUUID().withMessage('Zona inválida'),
+  body('tipoSectorId')
+    .optional()
+    .isUUID().withMessage('Tipo de sector inválido'),
   body('direccionEntrega')
     .optional()
     .isLength({ max: 500 }).withMessage('Dirección muy larga'),

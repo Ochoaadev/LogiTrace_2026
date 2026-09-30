@@ -26,6 +26,14 @@ export const zonaService = {
   delete: (id) => api.delete(`${base}/zonas/${id}`),
 }
 
+export const tipoSectorService = {
+  getAll: (params) => api.get(`${base}/tipos-sector`, { params }),
+  getById: (id) => api.get(`${base}/tipos-sector/${id}`),
+  create: (data) => api.post(`${base}/tipos-sector`, data),
+  update: (id, data) => api.put(`${base}/tipos-sector/${id}`, data),
+  delete: (id) => api.delete(`${base}/tipos-sector/${id}`),
+}
+
 export const vehiculoService = {
   getAll: (params) => api.get(`${base}/vehiculos`, { params }),
   getById: (id) => api.get(`${base}/vehiculos/${id}`),
@@ -102,6 +110,7 @@ export const catalogoService = {
   getProductos: (params) => productoService.getAll(params),
   getClientes: (params) => clienteService.getAll(params),
   getZonas: (params) => zonaService.getAll(params),
+  getTiposSector: (params) => tipoSectorService.getAll(params),
   getVehiculos: (params) => vehiculoService.getAll(params),
   getRepartidores: (params) => repartidorService.getAll(params),
   getRutas: (params) => rutaService.getAll(params),

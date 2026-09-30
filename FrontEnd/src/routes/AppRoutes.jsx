@@ -86,6 +86,7 @@ function AppRoutes() {
           <Route path="/catalogos/productos" element={<CatalogoPage key="productos" clave="productos" />} />
           <Route path="/catalogos/clientes" element={<CatalogoPage key="clientes" clave="clientes" />} />
           <Route path="/catalogos/zonas" element={<CatalogoPage key="zonas" clave="zonas" />} />
+          <Route path="/catalogos/tipos-sector" element={<CatalogoPage key="tipos-sector" clave="tipos-sector" />} />
           <Route path="/catalogos/vehiculos" element={<CatalogoPage key="vehiculos" clave="vehiculos" />} />
           <Route path="/catalogos/tipos-incidencia" element={<CatalogoPage key="tipos-incidencia" clave="tipos-incidencia" />} />
           <Route path="/catalogos/motivos-devolucion" element={<CatalogoPage key="motivos-devolucion" clave="motivos-devolucion" />} />

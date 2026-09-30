@@ -191,7 +191,8 @@ export default function PedidoDetallePage() {
               <Fila etiqueta="Contacto">{[p.cliente?.nombreContacto, p.telefonoContacto || p.cliente?.telefono].filter(Boolean).join(' · ')}</Fila>
               <Fila etiqueta="Dirección">{p.direccionEntrega}</Fila>
               <Fila etiqueta="Referencia">{p.referenciaEntrega}</Fila>
-              <Fila etiqueta="Zona">{p.zona?.nombre}</Fila>
+              <Fila etiqueta="Zona de despacho">{p.zona?.nombre}</Fila>
+              <Fila etiqueta="Tipo de sector">{p.tipoSector?.nombre}</Fila>
               <Fila etiqueta="Entrega solicitada">{p.fechaEntrega ? `${fechaSinHora(p.fechaEntrega)} ${textoPlazo(p)}` : null}</Fila>
               </dl>
             </div>
