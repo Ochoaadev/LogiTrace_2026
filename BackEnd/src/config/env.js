@@ -7,8 +7,13 @@ const DEFAULT_CORS_ORIGINS = [
 ]
 
 // Sin JWT_SECRET, cualquiera que conozca el valor por defecto podría firmar tokens válidos
+const SECRETOS_DE_EJEMPLO = ['default-secret', 'your-super-secret-jwt-key-change-in-production']
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET es obligatorio en producción')
+}
+// El valor de ejemplo de .env.example o uno corto se adivinan: se exige uno propio de 32+ caracteres
+if (process.env.NODE_ENV === 'production' && (SECRETOS_DE_EJEMPLO.includes(process.env.JWT_SECRET) || process.env.JWT_SECRET.length < 32)) {
+  throw new Error('JWT_SECRET de producción inválido: use uno propio de al menos 32 caracteres (npm run secreto)')
 }
 
 module.exports = {

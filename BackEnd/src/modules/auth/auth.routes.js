@@ -5,9 +5,10 @@ const { loginValidation, registerValidation, refreshValidation } = require('./au
 const { validationMiddleware } = require('../../middlewares/validationMiddleware')
 const { authMiddleware } = require('../../middlewares/authMiddleware')
 const { roleMiddleware } = require('../../middlewares/roleMiddleware')
+const { limiteLoginMiddleware } = require('../../middlewares/limiteLoginMiddleware')
 const authController = require('./auth.controller')
 
-router.post('/login', loginValidation, validationMiddleware, authController.login)
+router.post('/login', limiteLoginMiddleware, loginValidation, validationMiddleware, authController.login)
 router.post('/register', registerValidation, validationMiddleware, authMiddleware, roleMiddleware('ADMINISTRADOR'), authController.register)
 router.post('/refresh', refreshValidation, validationMiddleware, authController.refresh)
 router.post('/logout', authController.logout)

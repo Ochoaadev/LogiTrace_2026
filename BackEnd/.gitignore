@@ -41,3 +41,7 @@ Thumbs.db
 # Misc
 *.pem
 *.key
+
+# Respaldos de la base de datos (contienen datos y hashes de contraseñas): nunca al repositorio
+respaldos/
+*.dump

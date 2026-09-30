@@ -8,7 +8,10 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:studio": "npx prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "secreto": "node scripts/generar-secreto.js",
+    "respaldo": "node scripts/respaldo-bd.js",
+    "zonas:valera": "node scripts/cargar-zonas-valera.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

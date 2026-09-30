@@ -9,6 +9,9 @@ const { errorMiddleware } = require('./middlewares/errorMiddleware')
 const { auditoriaMiddleware } = require('./middlewares/auditoriaMiddleware')
 
 const app = express()
+// Detrás de un proxy inverso (Caddy/Nginx con HTTPS): req.ip es la IP real del cliente, necesaria
+// para el límite de intentos de login. Solo se activa con TRUST_PROXY=1 para no confiar en cabeceras falsas.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY)
 
 app.use(morgan('dev'))
 // Los orígenes permitidos salen de CORS_ORIGINS (.env); antes se apagaba el CORS entero

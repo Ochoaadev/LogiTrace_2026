@@ -1,3 +1,4 @@
+const crypto = require('crypto')
 const { PrismaClient } = require('@prisma/client')
 const bcrypt = require('bcryptjs')
 
@@ -9,6 +10,20 @@ async function hashPassword(password) {
   return bcrypt.hash(password, BCRYPT_ROUNDS)
 }
 
+// Claves iniciales de las cuentas del seed. Las de desarrollo están en el código (y por tanto en el
+// repositorio): en producción se toman de SEED_CLAVE_<ROL> o se generan al azar y se muestran una
+// sola vez. Solo se usan al crear la cuenta; volver a ejecutar el seed no cambia claves existentes.
+const PRODUCCION = process.env.NODE_ENV === 'production'
+const generadas = []
+function claveInicial(rol, desarrollo) {
+  const variable = `SEED_CLAVE_${rol}`
+  if (process.env[variable]) return process.env[variable]
+  if (!PRODUCCION) return desarrollo
+  const clave = `${crypto.randomBytes(12).toString('base64url')}#Lt9`
+  generadas.push([rol, clave])
+  return clave
+}
+
 async function main() {
   console.log('🌱 Iniciando seed de LogiTrace...')
 
@@ -16,10 +31,10 @@ async function main() {
   // USUARIOS
   // ============================================================
 
-  const adminPassword = await hashPassword('SuperTeq2026!Admin#')
-  const supervisorPassword = await hashPassword('SuperTeq2026!Supervisor#')
-  const operadorPassword = await hashPassword('SuperTeq2026!Operador#')
-  const repartidorPassword = await hashPassword('SuperTeq2026!Repartidor#')
+  const adminPassword = await hashPassword(claveInicial('ADMIN', 'SuperTeq2026!Admin#'))
+  const supervisorPassword = await hashPassword(claveInicial('SUPERVISOR', 'SuperTeq2026!Supervisor#'))
+  const operadorPassword = await hashPassword(claveInicial('OPERADOR', 'SuperTeq2026!Operador#'))
+  const repartidorPassword = await hashPassword(claveInicial('REPARTIDOR', 'SuperTeq2026!Repartidor#'))
 
   // Admin principal
   const admin = await prisma.usuario.upsert({
@@ -412,7 +427,14 @@ async function main() {
   console.log('   Repartidor: repartidor1@supertequenos.com / SuperTeq2026!Repartidor#')
 }
 
+function mostrarClavesGeneradas() {
+  if (!generadas.length) return
+  console.log('\n⚠️  Claves iniciales generadas. Solo aplican a las cuentas creadas en esta ejecución (las que ya existían conservan su clave). Anótelas y cámbielas al entrar:')
+  for (const [rol, clave] of generadas) console.log(`   ${rol.padEnd(11)} ${clave}`)
+}
+
 main()
+  .then(mostrarClavesGeneradas)
   .catch((e) => {
     console.error('❌ Error en seed:', e)
     process.exit(1)
