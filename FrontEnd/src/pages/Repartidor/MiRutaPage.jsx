@@ -59,7 +59,8 @@ export default function MiRutaPage() {
   const [aviso, setAviso] = useState(null)
   const despacho = data?.despacho
   const enRuta = ['EN_RUTA', 'CON_INCIDENCIA'].includes(despacho?.estado)
-  const gps = useSeguimientoGPS(enRuta && !pausado, (punto) => despachoService.updateUbicacion(despacho.id, punto))
+  // Cada punto lleva su despacho: si se envía más tarde (sin señal), va al recorrido correcto
+  const gps = useSeguimientoGPS(enRuta && !pausado, ({ despachoId, ...punto }) => despachoService.updateUbicacion(despachoId, punto), despacho?.id)
   const iniciar = useAccionRuta(() => despachoService.iniciarRecorrido(despacho.id))
 
   if (isLoading) return <div className="h-96 bg-white animate-pulse" />
@@ -132,7 +133,8 @@ export default function MiRutaPage() {
                 {enRuta && gps.posicion && (
                   <p className="text-xs text-gray-600 font-mono">
                     Precisión ±{gps.posicion.precision} m · último envío {hora(gps.ultimoEnvio)} · {gps.enviados} posición(es) enviada(s)
-                    {gps.falloEnvio && <span className="text-danger"> · sin conexión, reintentando</span>}
+                    {gps.falloEnvio && <span className="text-danger"> · sin conexión</span>}
+                    {gps.falloEnvio && gps.pendientes > 0 && <span className="text-[#8a3800]"> · {gps.pendientes} posición(es) guardada(s) en el teléfono; se enviarán al volver la señal</span>}
                   </p>
                 )}
               </div>

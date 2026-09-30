@@ -205,7 +205,8 @@ pedido: {
         },
         orderBy: { ordenParada: 'asc' },
       },
-      ubicacionesGPS: { orderBy: { fechaHora: 'desc' }, take: 50 },
+      // Recorrido completo (antes solo los últimos 50 puntos, ~25 min de ruta)
+      ubicacionesGPS: { orderBy: { fechaHora: 'desc' }, take: 2000 },
       registrosTemperatura: {
         orderBy: { fechaHora: 'desc' },
         take: 20,
@@ -467,11 +468,28 @@ async function verificarAcceso(despacho, user) {
  * suyo y creaba un evento de trazabilidad por cada posición (un recorrido de 2 h con envíos cada
  * 30 s llenaba el expediente con 240 eventos); el recorrido ya se ve completo en el mapa.
  */
-async function updateUbicacion(id, { latitud, longitud, precisionMetros, velocidadKmh }, user) {
+const TOLERANCIA_RELOJ_MS = 2 * 60 * 1000 // diferencia admitida entre el reloj del teléfono y el del servidor
+
+async function updateUbicacion(id, { latitud, longitud, precisionMetros, velocidadKmh, fechaHora }, user) {
   const despacho = await prisma.despacho.findUnique({ where: { id } })
   if (!despacho) throw new AppError('Despacho no encontrado', 404)
   await verificarAcceso(despacho, user)
-  if (!['EN_RUTA', 'CON_INCIDENCIA'].includes(despacho.estado)) {
+
+  // Un punto tomado sin señal llega con su hora de captura: debe caer dentro del recorrido
+  // (entre la salida y el cierre), aunque el despacho ya se haya finalizado al recuperar la conexión
+  const capturado = fechaHora ? new Date(fechaHora) : null
+  if (capturado) {
+    const ahora = Date.now()
+    const salida = despacho.fechaHoraSalida?.getTime()
+    const cierre = despacho.fechaHoraCierre?.getTime() ?? ahora
+    if (capturado.getTime() > ahora + TOLERANCIA_RELOJ_MS) throw new AppError('La hora del punto está en el futuro', 400)
+    if (!salida || capturado.getTime() < salida - TOLERANCIA_RELOJ_MS || capturado.getTime() > cierre + TOLERANCIA_RELOJ_MS) {
+      throw new AppError('El punto no corresponde al recorrido de este despacho', 400)
+    }
+    if (!['EN_RUTA', 'CON_INCIDENCIA', 'FINALIZADO'].includes(despacho.estado)) {
+      throw new AppError('El despacho no admite puntos de recorrido', 400)
+    }
+  } else if (!['EN_RUTA', 'CON_INCIDENCIA'].includes(despacho.estado)) {
     throw new AppError('Solo se registra la ubicación de un despacho en ruta', 400)
   }
 
@@ -483,6 +501,7 @@ async function updateUbicacion(id, { latitud, longitud, precisionMetros, velocid
       longitud,
       precisionMetros: precisionMetros ?? null,
       velocidadKmh: velocidadKmh ?? null,
+      ...(capturado && { fechaHora: capturado }),
     },
   })
   return { id: punto.id, fechaHora: punto.fechaHora }

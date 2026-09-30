@@ -62,8 +62,8 @@ async function changeEstado(req, res, next) {
 
 async function updateUbicacion(req, res, next) {
   try {
-    const { latitud, longitud, precisionMetros, velocidadKmh } = req.body
-    const punto = await despachoService.updateUbicacion(req.params.id, { latitud, longitud, precisionMetros, velocidadKmh }, req.user)
+    const { latitud, longitud, precisionMetros, velocidadKmh, fechaHora } = req.body
+    const punto = await despachoService.updateUbicacion(req.params.id, { latitud, longitud, precisionMetros, velocidadKmh, fechaHora }, req.user)
     return success(res, punto, 'Ubicación registrada', 201)
   } catch (err) {
     next(err)

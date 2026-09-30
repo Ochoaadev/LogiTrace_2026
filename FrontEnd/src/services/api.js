@@ -40,7 +40,11 @@ api.interceptors.response.use(
       sesion.limpiar()
       window.location.href = '/login'
     }
-    return Promise.reject(error.response?.data || error)
+    // Con respuesta del servidor se conserva el código HTTP (p. ej. para distinguir un rechazo de una
+    // caída de red); sin respuesta se devuelve el error de red tal cual
+    if (!error.response) return Promise.reject(error)
+    const datos = error.response.data
+    return Promise.reject({ ...(datos && typeof datos === 'object' ? datos : { message: String(datos || error.message) }), status: error.response.status })
   }
 )
 

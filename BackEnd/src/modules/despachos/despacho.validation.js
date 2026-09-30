@@ -81,6 +81,8 @@ const updateUbicacionValidation = [
   param('id').isUUID().withMessage('ID inválido'),
   ...coordenadas(true),
   body('velocidadKmh').optional({ values: 'null' }).isFloat({ min: 0, max: 300 }).withMessage('Velocidad inválida').toFloat(),
+  // Hora en que el teléfono tomó la posición (puntos guardados sin señal y enviados después)
+  body('fechaHora').optional({ values: 'null' }).isISO8601().withMessage('Fecha y hora inválidas'),
 ]
 
 const entregaValidation = [
