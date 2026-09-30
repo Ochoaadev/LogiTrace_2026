@@ -430,6 +430,7 @@ model Pedido {
   latitudEntrega   Decimal?        @db.Decimal(9, 6)
   longitudEntrega  Decimal?        @db.Decimal(9, 6)
   telefonoContacto String?         @db.VarChar(30)
+  fechaEntrega     DateTime?       @db.Date // fecha de entrega solicitada por el cliente
   total            Decimal?        @db.Decimal(10, 2)
   observaciones    String?
   creadoPorId      String?         @db.Uuid

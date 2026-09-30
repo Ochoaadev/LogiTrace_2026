@@ -18,6 +18,18 @@ import { useExpediente } from '@/services/query/useTrazabilidad'
 import { getEstadoConfig, getPrioridadConfig, TRANSICIONES_PEDIDO } from '@/schemas/pedidoSchema'
 import { getEstadoConfig as getEstadoDespachoConfig } from '@/schemas/despachoSchema'
 import { LineaTemporal } from '@/pages/Trazabilidad/components/LineaTemporal'
+import { fechaSinHora, diasHasta } from '@/lib/fechas'
+
+// Plazo respecto a la fecha solicitada, solo mientras el pedido no se haya entregado
+const FINALES = ['ENTREGADO', 'CERRADO', 'CANCELADO', 'DEVUELTO']
+function textoPlazo(p) {
+  if (FINALES.includes(p.estado)) return ''
+  const d = diasHasta(p.fechaEntrega)
+  if (d === null) return ''
+  if (d === 0) return '(hoy)'
+  if (d === 1) return '(mañana)'
+  return d > 0 ? `(en ${d} días)` : `(vencida hace ${-d} día${d === -1 ? '' : 's'})`
+}
 
 // Acción de la UI para cada estado destino. EN_RUTA no se ofrece aquí: ocurre al asignar el
 // pedido a un despacho y ponerlo en ruta desde el módulo de despachos.
@@ -154,7 +166,10 @@ export default function PedidoDetallePage() {
         <Dato etiqueta="Registrado">{fechaHora(p.fechaHora)}</Dato>
         <Dato etiqueta="Productos">{num(totalProductos)} <span className="text-sm font-normal text-gray-600">{unidades.join(' / ')}</span></Dato>
         <Dato etiqueta="Total">{totalMonto !== null ? `$${num(totalMonto)}` : 'Sin precio'}</Dato>
-        <Dato etiqueta="Entrega">{METODO_ENTREGA[p.metodoEntrega] || p.metodoEntrega}</Dato>
+        <Dato etiqueta="Entrega">
+          {METODO_ENTREGA[p.metodoEntrega] || p.metodoEntrega}
+          {p.fechaEntrega && <span className="block text-sm font-normal text-gray-600">Solicitada: {fechaSinHora(p.fechaEntrega)} {textoPlazo(p)}</span>}
+        </Dato>
       </div>
 
       <Tabs defaultValue="info" className="bg-white px-4 pb-4">
@@ -177,6 +192,7 @@ export default function PedidoDetallePage() {
               <Fila etiqueta="Dirección">{p.direccionEntrega}</Fila>
               <Fila etiqueta="Referencia">{p.referenciaEntrega}</Fila>
               <Fila etiqueta="Zona">{p.zona?.nombre}</Fila>
+              <Fila etiqueta="Entrega solicitada">{p.fechaEntrega ? `${fechaSinHora(p.fechaEntrega)} ${textoPlazo(p)}` : null}</Fila>
               </dl>
             </div>
             <div>

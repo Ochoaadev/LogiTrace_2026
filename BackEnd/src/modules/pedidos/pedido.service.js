@@ -261,8 +261,20 @@ async function getPedidoById(id) {
   return pedido
 }
 
+// Campos del pedido que se pueden guardar desde la API. Antes se pasaba el cuerpo completo a
+// Prisma: la validación aceptaba "fechaEntrega" sin que existiera la columna y el registro fallaba.
+const CAMPOS_PEDIDO = ['fechaEntrega', 'prioridad', 'metodoEntrega', 'zonaId', 'direccionEntrega', 'referenciaEntrega', 'latitudEntrega', 'longitudEntrega', 'telefonoContacto', 'observaciones']
+
+function camposPermitidos(data) {
+  const limpio = {}
+  for (const campo of CAMPOS_PEDIDO) if (data[campo] !== undefined) limpio[campo] = data[campo]
+  if (limpio.fechaEntrega) limpio.fechaEntrega = new Date(limpio.fechaEntrega)
+  return limpio
+}
+
 async function createPedido(data, usuarioId) {
-  const { clienteId, items, ...rest } = data
+  const { clienteId, items } = data
+  const rest = camposPermitidos(data)
 
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
   if (!cliente) throw new AppError('Cliente no encontrado', 404)
@@ -324,7 +336,8 @@ async function updatePedido(id, data) {
     throw new AppError('No se puede modificar un pedido en estado final', 400)
   }
 
-  const { items, ...rest } = data
+  const { items } = data
+  const rest = camposPermitidos(data)
 
   const updated = await prisma.$transaction(async (tx) => {
     if (items && items.length > 0) {
