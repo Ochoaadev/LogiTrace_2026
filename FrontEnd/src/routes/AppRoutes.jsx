@@ -46,17 +46,28 @@ function AppRoutes() {
             <Route path="/mi-ruta" element={<MiRutaPage />} />
           </Route>
 
-          <Route path="/pedidos" element={<PedidosPage />} />
-          <Route path="/pedidos/nuevo" element={<NuevoPedidoPage />} />
-          <Route path="/pedidos/:id" element={<PedidoDetallePage />} />
+          {/* Módulos de oficina: el repartidor trabaja solo desde «Mi ruta» y se le redirige allí */}
+          <Route element={<ProtectedRoute allowedPermissions={['pedidos.list']} />}>
+            <Route path="/pedidos" element={<PedidosPage />} />
+            <Route path="/pedidos/:id" element={<PedidoDetallePage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedPermissions={['pedidos.create']} />}>
+            <Route path="/pedidos/nuevo" element={<NuevoPedidoPage />} />
+          </Route>
 
-          <Route path="/despachos" element={<DespachosPage />} />
-          <Route path="/despachos/nuevo" element={<NuevoDespachoPage />} />
-          <Route path="/despachos/:id" element={<DespachoDetallePage />} />
-          <Route path="/despachos/flujo" element={<FlujoOperativoPage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['despachos.list']} />}>
+            <Route path="/despachos" element={<DespachosPage />} />
+            <Route path="/despachos/:id" element={<DespachoDetallePage />} />
+            <Route path="/despachos/flujo" element={<FlujoOperativoPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedPermissions={['despachos.create']} />}>
+            <Route path="/despachos/nuevo" element={<NuevoDespachoPage />} />
+          </Route>
 
-          <Route path="/incidencias" element={<IncidenciasPage />} />
-          <Route path="/incidencias/:id" element={<IncidenciaDetallePage />} />
+          <Route element={<ProtectedRoute allowedPermissions={['incidencias.list']} />}>
+            <Route path="/incidencias" element={<IncidenciasPage />} />
+            <Route path="/incidencias/:id" element={<IncidenciaDetallePage />} />
+          </Route>
 
           {/* Los módulos que no todos los perfiles pueden abrir redirigen al inicio (antes solo el
               menú los ocultaba y la dirección directa mostraba la pantalla con errores de permisos) */}

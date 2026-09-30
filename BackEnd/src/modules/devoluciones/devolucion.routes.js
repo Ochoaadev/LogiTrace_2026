@@ -19,7 +19,7 @@ router.use(authMiddleware)
 
 router.get(
   '/',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   listDevolucionesValidation,
   validationMiddleware,
   devolucionController.listDevoluciones
@@ -33,13 +33,13 @@ router.get(
 
 router.get(
   '/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   devolucionController.getDevolucionById
 )
 
 router.post(
   '/',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   createDevolucionValidation,
   validationMiddleware,
   devolucionController.createDevolucion

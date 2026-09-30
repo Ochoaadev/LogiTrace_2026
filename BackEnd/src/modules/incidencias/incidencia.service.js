@@ -243,7 +243,7 @@ async function getIncidenciaById(id) {
   return incidencia
 }
 
-async function createIncidencia(data, usuarioId) {
+async function createIncidencia(data, usuarioId, user) {
   const { despachoPedidoId, tipoIncidenciaId, descripcion, latitud, longitud, decisionOperativa } = data
 
   const dp = await prisma.despachoPedido.findUnique({
@@ -251,6 +251,11 @@ async function createIncidencia(data, usuarioId) {
     include: { pedido: true, despacho: true },
   })
   if (!dp) throw new AppError('Despacho-pedido no encontrado', 404)
+  // Un repartidor solo reporta incidencias de las paradas de su propio despacho
+  if (user?.rol === 'REPARTIDOR') {
+    const repartidor = await prisma.repartidor.findUnique({ where: { usuarioId: user.sub } })
+    if (!repartidor || repartidor.id !== dp.despacho.repartidorId) throw new AppError('Esta parada no pertenece a un despacho asignado a usted', 403)
+  }
   // Una incidencia ocurre durante la entrega: el despacho debe estar en ruta y la parada abierta
   if (!['EN_RUTA', 'CON_INCIDENCIA'].includes(dp.despacho.estado)) {
     throw new AppError(`Solo se reportan incidencias de despachos en ruta (estado: ${dp.despacho.estado})`, 400)

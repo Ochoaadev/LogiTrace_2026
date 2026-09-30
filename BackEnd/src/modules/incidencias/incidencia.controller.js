@@ -25,7 +25,7 @@ async function getIncidenciaById(req, res, next) {
 
 async function createIncidencia(req, res, next) {
   try {
-    const incidencia = await incidenciaService.createIncidencia(req.body, req.user.sub)
+    const incidencia = await incidenciaService.createIncidencia(req.body, req.user.sub, req.user)
     return success(res, incidencia, 'Incidencia registrada', 201)
   } catch (err) {
     next(err)

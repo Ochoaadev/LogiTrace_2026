@@ -16,7 +16,7 @@ router.use(authMiddleware)
 
 router.get(
   '/',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   listPedidosValidation,
   validationMiddleware,
   pedidoController.listPedidos
@@ -31,7 +31,7 @@ router.get(
 
 router.get(
   '/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   pedidoController.getPedidoById
 )
 

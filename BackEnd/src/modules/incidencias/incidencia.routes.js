@@ -16,7 +16,7 @@ router.use(authMiddleware)
 
 router.get(
   '/',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   listIncidenciasValidation,
   validationMiddleware,
   incidenciaController.listIncidencias
@@ -38,10 +38,11 @@ router.get(
 
 router.get(
   '/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   incidenciaController.getIncidenciaById
 )
 
+// El repartidor reporta incidencias desde «Mi ruta» (solo de sus propias paradas)
 router.post(
   '/',
   roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
@@ -52,7 +53,7 @@ router.post(
 
 router.put(
   '/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   updateIncidenciaValidation,
   validationMiddleware,
   incidenciaController.updateIncidencia
@@ -60,7 +61,7 @@ router.put(
 
 router.patch(
   '/:id/estado',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   changeEstadoIncidenciaValidation,
   validationMiddleware,
   incidenciaController.changeEstado

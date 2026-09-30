@@ -9,9 +9,9 @@ const ROLE_HIERARCHY = {
 
 const PERMISSIONS = {
   // Pedidos
-  'pedidos.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
+  'pedidos.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'pedidos.create': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
-  'pedidos.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
+  'pedidos.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'pedidos.edit': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'pedidos.cancel': ['ADMINISTRADOR', 'SUPERVISOR'],
   'pedidos.assign_despacho': ['ADMINISTRADOR', 'SUPERVISOR'],
@@ -22,22 +22,23 @@ const PERMISSIONS = {
   'dashboard.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
 
   // Ruta propia del repartidor (vista móvil con GPS)
+  // El repartidor trabaja solo desde «Mi ruta»: ve y actualiza únicamente su despacho asignado
   'ruta.propia': ['REPARTIDOR'],
 
   // Despachos
-  'despachos.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
-  'despachos.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
+  'despachos.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
+  'despachos.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'despachos.create': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'despachos.edit': ['ADMINISTRADOR', 'SUPERVISOR'],
   'despachos.assign_repartidor': ['ADMINISTRADOR', 'SUPERVISOR'],
-  'despachos.change_state': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
+  'despachos.change_state': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'despachos.flujo_operativo': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'despachos.export': ['ADMINISTRADOR', 'SUPERVISOR'],
 
   // Incidencias
-  'incidencias.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
-  'incidencias.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
-  'incidencias.create': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'],
+  'incidencias.list': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
+  'incidencias.view': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
+  'incidencias.create': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'incidencias.edit': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'incidencias.resolve': ['ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'],
   'incidencias.export': ['ADMINISTRADOR', 'SUPERVISOR'],

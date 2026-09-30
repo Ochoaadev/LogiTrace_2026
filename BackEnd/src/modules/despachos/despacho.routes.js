@@ -20,7 +20,7 @@ router.use(authMiddleware)
 
 router.get(
   '/',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   listDespachosValidation,
   validationMiddleware,
   despachoController.listDespachos
@@ -51,13 +51,13 @@ router.post(
 
 router.get(
   '/flujo-operativo',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   despachoController.getFlujoOperativo
 )
 
 router.get(
   '/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   despachoController.getDespachoById
 )
 

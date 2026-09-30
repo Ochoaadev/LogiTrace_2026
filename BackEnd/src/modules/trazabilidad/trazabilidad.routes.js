@@ -19,7 +19,7 @@ router.use(authMiddleware)
 
 router.get(
   '/',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   listTrazabilidadValidation,
   validationMiddleware,
   trazabilidadController.listTrazabilidad
@@ -37,7 +37,7 @@ router.get('/export/csv', EXPORTA, exportCsvValidation, validationMiddleware, tr
 // Registro manual de temperatura (cava, despacho o devolución); el repartidor lo toma en ruta
 router.post(
   '/temperaturas',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   registrarTemperaturaValidation,
   validationMiddleware,
   trazabilidadController.registrarTemperatura
@@ -51,7 +51,7 @@ router.get(
 
 router.get(
   '/pedido/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   getTrazabilidadByPedidoValidation,
   validationMiddleware,
   trazabilidadController.getTrazabilidadByPedido
@@ -65,13 +65,13 @@ router.get(
 
 router.get(
   '/pedido/:id/timeline',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   trazabilidadController.getTimeline
 )
 
 router.get(
   '/despacho/:id',
-  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR', 'REPARTIDOR'),
+  roleMiddleware('ADMINISTRADOR', 'SUPERVISOR', 'OPERADOR'),
   getTrazabilidadByDespachoValidation,
   validationMiddleware,
   trazabilidadController.getTrazabilidadByDespacho
