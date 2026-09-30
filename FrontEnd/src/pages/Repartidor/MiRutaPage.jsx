@@ -158,7 +158,8 @@ export default function MiRutaPage() {
             {paradas.map((p) => {
               const estado = ESTADO_PARADA[p.estado] || { label: p.estado, variant: 'default' }
               const telefono = p.pedido.telefonoContacto || p.pedido.cliente.telefono
-              const porEntregar = POR_ENTREGAR.includes(p.estado) && despacho.estado === 'EN_RUTA'
+              // Con una incidencia en otra parada se sigue entregando: solo la parada afectada queda en espera
+              const porEntregar = POR_ENTREGAR.includes(p.estado) && ['EN_RUTA', 'CON_INCIDENCIA'].includes(despacho.estado)
               return (
                 <article key={p.id} className={cn('bg-white p-4 sm:p-5 border-l-4', porEntregar ? 'border-primary' : p.estado === 'ENTREGADO' ? 'border-success' : 'border-gray-200')}>
                   <div className="flex items-start justify-between gap-3">

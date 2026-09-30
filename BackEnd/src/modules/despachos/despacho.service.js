@@ -566,7 +566,9 @@ async function registrarEntrega(id, paradaId, { receptor, observaciones, latitud
   const despacho = await prisma.despacho.findUnique({ where: { id }, include: { pedidos: true } })
   if (!despacho) throw new AppError('Despacho no encontrado', 404)
   await verificarAcceso(despacho, user)
-  if (despacho.estado !== 'EN_RUTA') throw new AppError('El despacho no está en ruta', 400)
+  // Una incidencia en una parada no bloquea las demás: con el despacho CON_INCIDENCIA se siguen
+  // entregando las paradas abiertas (la afectada queda en CON_INCIDENCIA hasta resolverse)
+  if (!['EN_RUTA', 'CON_INCIDENCIA'].includes(despacho.estado)) throw new AppError('El despacho no está en ruta', 400)
   const parada = despacho.pedidos.find((p) => p.id === paradaId)
   if (!parada) throw new AppError('La parada no pertenece a este despacho', 404)
   if (!PARADAS_POR_ENTREGAR.includes(parada.estado)) {
@@ -606,7 +608,7 @@ async function registrarEntrega(id, paradaId, { receptor, observaciones, latitud
       await tx.eventoTrazabilidad.create({
         data: {
           usuarioId: user.sub, tipoEvento: 'ENTREGA_REGISTRADA', entidadTipo: 'Despacho', entidadId: id,
-          estadoAnterior: 'EN_RUTA', estadoNuevo: 'FINALIZADO', descripcion: `Despacho ${despacho.codigo} finalizado: todas las paradas cerradas`,
+          estadoAnterior: despacho.estado, estadoNuevo: 'FINALIZADO', descripcion: `Despacho ${despacho.codigo} finalizado: todas las paradas cerradas`,
         },
       })
     }
