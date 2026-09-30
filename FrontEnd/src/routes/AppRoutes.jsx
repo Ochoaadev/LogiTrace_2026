@@ -1,30 +1,32 @@
+import { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import ProtectedRoute from '../components/layout/ProtectedRoute'
 import { usePermissions } from '../hooks/usePermissions'
 
 import LoginPage from '../pages/Auth/LoginPage'
-import DashboardPage from '../pages/Dashboard/DashboardPage'
-import PedidosPage from '../pages/Pedidos/PedidosPage'
-import PedidoDetallePage from '../pages/Pedidos/PedidoDetallePage'
-import NuevoPedidoPage from '../pages/Pedidos/NuevoPedidoPage'
-import DespachosPage from '../pages/Despachos/DespachosPage'
-import DespachoDetallePage from '../pages/Despachos/DespachoDetallePage'
-import NuevoDespachoPage from '../pages/Despachos/NuevoDespachoPage'
-import FlujoOperativoPage from '../pages/Despachos/FlujoOperativoPage'
-import IncidenciasPage from '../pages/Incidencias/IncidenciasPage'
-import IncidenciaDetallePage from '../pages/Incidencias/IncidenciaDetallePage'
-import DevolucionesPage from '../pages/Devoluciones/DevolucionesPage'
-import DevolucionDetallePage from '../pages/Devoluciones/DevolucionDetallePage'
-import InventarioPage from '../pages/Inventario/InventarioPage'
-import MovimientoDetallePage from '../pages/Inventario/MovimientoDetallePage'
-import TrazabilidadPage from '../pages/Trazabilidad/TrazabilidadPage'
-import ResiduosPage from '../pages/Residuos/ResiduosPage'
-import ReportesPage from '../pages/Reportes/ReportesPage'
-import AdministracionPage from '../pages/Administracion/AdministracionPage'
-import MiRutaPage from '../pages/Repartidor/MiRutaPage'
-import CatalogoPage from '../pages/Catalogos/CatalogoPage'
-
+// Cada pantalla se descarga al abrirla (antes toda la app iba en un único paquete de 1,4 MB,
+// pesado para los teléfonos de los repartidores). El login se mantiene en el paquete principal.
+const DashboardPage = lazy(() => import('../pages/Dashboard/DashboardPage'))
+const PedidosPage = lazy(() => import('../pages/Pedidos/PedidosPage'))
+const PedidoDetallePage = lazy(() => import('../pages/Pedidos/PedidoDetallePage'))
+const NuevoPedidoPage = lazy(() => import('../pages/Pedidos/NuevoPedidoPage'))
+const DespachosPage = lazy(() => import('../pages/Despachos/DespachosPage'))
+const DespachoDetallePage = lazy(() => import('../pages/Despachos/DespachoDetallePage'))
+const NuevoDespachoPage = lazy(() => import('../pages/Despachos/NuevoDespachoPage'))
+const FlujoOperativoPage = lazy(() => import('../pages/Despachos/FlujoOperativoPage'))
+const IncidenciasPage = lazy(() => import('../pages/Incidencias/IncidenciasPage'))
+const IncidenciaDetallePage = lazy(() => import('../pages/Incidencias/IncidenciaDetallePage'))
+const DevolucionesPage = lazy(() => import('../pages/Devoluciones/DevolucionesPage'))
+const DevolucionDetallePage = lazy(() => import('../pages/Devoluciones/DevolucionDetallePage'))
+const InventarioPage = lazy(() => import('../pages/Inventario/InventarioPage'))
+const MovimientoDetallePage = lazy(() => import('../pages/Inventario/MovimientoDetallePage'))
+const TrazabilidadPage = lazy(() => import('../pages/Trazabilidad/TrazabilidadPage'))
+const ResiduosPage = lazy(() => import('../pages/Residuos/ResiduosPage'))
+const ReportesPage = lazy(() => import('../pages/Reportes/ReportesPage'))
+const AdministracionPage = lazy(() => import('../pages/Administracion/AdministracionPage'))
+const MiRutaPage = lazy(() => import('../pages/Repartidor/MiRutaPage'))
+const CatalogoPage = lazy(() => import('../pages/Catalogos/CatalogoPage'))
 
 // El repartidor trabaja desde su ruta (GPS); el panel de indicadores es del personal de planta
 function Inicio() {

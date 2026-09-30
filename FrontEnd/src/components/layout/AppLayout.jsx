@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 
 // Layout del Figma: header a todo el ancho arriba; debajo, sidebar fijo + contenido con scroll propio.
 function AppLayout() {
@@ -18,7 +19,10 @@ function AppLayout() {
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
           {/* La clave por ruta reinicia la animación de entrada en cada pantalla */}
           <div key={location.pathname} className="max-w-[1400px] mx-auto animar-entrada">
-            <Outlet />
+            {/* Mientras se descarga la pantalla (carga diferida) se ve un esqueleto dentro del diseño */}
+            <Suspense fallback={<SkeletonCard />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
