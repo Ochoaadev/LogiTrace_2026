@@ -421,10 +421,9 @@ async function main() {
 
   console.log('\n🎉 Seed completado exitosamente!')
   console.log('\n📋 Credenciales de acceso:')
-  console.log('   Admin:      admin@supertequenos.com / SuperTeq2026!Admin#')
-  console.log('   Supervisor: supervisor1@supertequenos.com / SuperTeq2026!Supervisor#')
-  console.log('   Operador:   operador1@supertequenos.com / SuperTeq2026!Operador#')
-  console.log('   Repartidor: repartidor1@supertequenos.com / SuperTeq2026!Repartidor#')
+  // Las claves no se imprimen: en producción se generan al azar (se muestran una sola vez al final) y
+  // las de desarrollo están en este archivo, no en el registro de la consola
+  console.log('   admin@, supervisor1@, operador1@, operador2@, repartidor1@ y repartidor2@supertequenos.com')
 }
 
 function mostrarClavesGeneradas() {

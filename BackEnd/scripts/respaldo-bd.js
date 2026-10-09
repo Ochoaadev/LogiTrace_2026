@@ -10,6 +10,7 @@ require('dotenv').config()
 const { spawnSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { cifrarArchivo } = require('./cifrado-respaldo')
 
 const RAIZ = path.join(__dirname, '..')
 const DESTINO = path.resolve(RAIZ, process.env.RESPALDO_DIR || 'respaldos')
@@ -53,11 +54,21 @@ function main() {
     fs.rmSync(archivo, { force: true })
     throw new Error(`pg_dump terminó con código ${r.status}`)
   }
-  const kb = Math.round(fs.statSync(archivo).size / 1024)
-  console.log(`Respaldo creado: ${path.relative(RAIZ, archivo)} (${kb} KB)`)
+  // Con RESPALDO_CLAVE el respaldo queda cifrado (AES-256-GCM) y el archivo legible se borra: contiene
+  // cédulas, teléfonos y hashes de contraseñas, y suele copiarse fuera del servidor
+  let final = archivo
+  if (process.env.RESPALDO_CLAVE) {
+    final = `${archivo}.enc`
+    cifrarArchivo(archivo, final, process.env.RESPALDO_CLAVE)
+    fs.rmSync(archivo)
+  } else if (process.env.NODE_ENV === 'production') {
+    console.warn('Aviso: respaldo SIN cifrar. Defina RESPALDO_CLAVE en el .env para cifrarlo.')
+  }
+  const kb = Math.round(fs.statSync(final).size / 1024)
+  console.log(`Respaldo creado: ${path.relative(RAIZ, final)} (${kb} KB)${final !== archivo ? ', cifrado' : ''}`)
 
   // Rotación: se eliminan los más antiguos de esta misma base
-  const previos = fs.readdirSync(DESTINO).filter((f) => f.startsWith(`${nombreBd}-`) && f.endsWith('.dump')).sort()
+  const previos = fs.readdirSync(DESTINO).filter((f) => f.startsWith(`${nombreBd}-`) && /\.dump(\.enc)?$/.test(f)).sort()
   for (const viejo of previos.slice(0, Math.max(0, previos.length - CONSERVAR))) {
     fs.rmSync(path.join(DESTINO, viejo))
     console.log(`Eliminado por antigüedad: ${viejo}`)

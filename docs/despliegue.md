@@ -18,16 +18,28 @@ Teléfonos / PC ──HTTPS──► Caddy (443) ──┬── /api/*  → bac
 
 ## 2. Base de datos y backend
 
-1. Crear la base (por ejemplo `logitrace`) y un usuario de PostgreSQL propio, con contraseña fuerte (no `postgres/postgres`).
+1. Crear la base (por ejemplo `logitrace`) con un usuario **dueño del esquema** (para las migraciones) y,
+   tras las migraciones, el usuario **restringido de la API** con `scripts/rol-base-datos.sql`: solo lee y
+   escribe datos, no puede crear, borrar ni vaciar tablas, y la auditoría queda inmodificable.
+
+   ```bash
+   psql -U <dueño> -d logitrace -v clave="'<contraseña fuerte>'" -f scripts/rol-base-datos.sql
+   ```
+
+   Repetirlo tras cada migración que cree tablas nuevas. En una base gestionada en la nube, la conexión
+   debe ir cifrada: `sslmode=require` al final de `DATABASE_URL`.
 2. Copiar `BackEnd/.env.example` a `BackEnd/.env` y completar:
 
    | Variable | Valor en producción |
    |---|---|
-   | `DATABASE_URL` | `postgresql://<usuario>:<clave>@localhost:5432/logitrace?schema=public` |
+   | `DATABASE_URL` | `postgresql://logitrace_app:<clave>@<host>:5432/logitrace?schema=public&sslmode=require` (el rol restringido, nunca `postgres`) |
    | `JWT_SECRET` | resultado de `npm run secreto` (64 caracteres; el backend no arranca con el de ejemplo ni con uno de menos de 32) |
    | `NODE_ENV` | `production` |
    | `CORS_ORIGINS` | la dirección pública, p. ej. `https://192.168.0.10` |
-   | `TRUST_PROXY` | `1` (el backend está detrás de Caddy) |
+   | `TRUST_PROXY` | `1` (el backend está detrás de Caddy; necesario para HTTPS obligatorio y los límites por IP) |
+   | `RESPALDO_CLAVE` | frase secreta larga para cifrar los respaldos; guardarla fuera del servidor |
+   | `JWT_EXPIRES_IN` | `15m` (duración del token de acceso; la sesión se renueva sola con la cookie) |
+   | `LIMITE_POR_USUARIO`, `LIMITE_POR_IP` | opcional: peticiones por minuto (300 y 900 por defecto) |
    | `SEED_CLAVE_ADMIN`, … | opcional: claves iniciales; si faltan se generan al azar y se muestran una sola vez |
 
 3. Instalar y preparar:
@@ -35,7 +47,7 @@ Teléfonos / PC ──HTTPS──► Caddy (443) ──┬── /api/*  → bac
    ```bash
    cd BackEnd
    npm ci --omit=dev
-   npx prisma migrate deploy      # crea las tablas y la extensión unaccent
+   npx prisma migrate deploy      # con el usuario dueño: crea las tablas y la extensión unaccent
    npm run prisma:seed            # cuentas, catálogos base (anote las claves que muestre)
    npm run zonas:valera -- --aplicar   # zonas de despacho y tipos de sector de Valera
    ```
@@ -84,8 +96,23 @@ Servido por HTTPS, el frontend llama a la API en la misma dirección (`/api`), a
 		try_files {path} /index.html
 		file_server
 	}
+
+	# Cabeceras de seguridad de la aplicación web (la API pone las suyas con helmet)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=()"
+		-Server
+	}
 }
 ```
+
+Caddy redirige solo de HTTP a HTTPS; la API además rechaza cualquier escritura que no llegue por HTTPS.
+La política de contenido (CSP) se probó con el build de producción: mapas, fuentes y sesión funcionan
+sin violaciones.
 
 - Con **dominio propio** apuntando al servidor (y puertos 80/443 accesibles), se reemplaza la IP por el
   dominio y se quita `tls internal`: Caddy obtiene un certificado público automáticamente y los
@@ -101,7 +128,7 @@ Iniciar como servicio: `nssm install LogiTrace-Web "C:\caddy\caddy.exe" run --co
 
 ```bash
 cd BackEnd
-npm run respaldo     # crea respaldos/<base>-AAAAMMDD-HHMM.dump y conserva los últimos 14
+npm run respaldo     # crea respaldos/<base>-AAAAMMDD-HHMM.dump.enc (cifrado) y conserva los últimos 14
 ```
 
 Programarlo a diario (Símbolo del sistema como administrador):
@@ -111,8 +138,10 @@ schtasks /Create /SC DAILY /ST 23:00 /TN "LogiTrace respaldo" /TR "cmd /c cd /d 
 ```
 
 - Copiar periódicamente la carpeta `respaldos/` **fuera del servidor** (disco externo o nube de la empresa).
-- Restaurar (sobre una base existente):
-  `pg_restore --clean --if-exists --no-owner -d "postgresql://<usuario>@localhost:5432/logitrace" respaldos\<archivo>.dump`
+- Con `RESPALDO_CLAVE` el respaldo se cifra con AES-256-GCM y no queda copia legible. Para restaurar,
+  primero se descifra (`node scripts/descifrar-respaldo.js respaldos\<archivo>.dump.enc`) y luego:
+  `pg_restore --clean --if-exists --no-owner -d "postgresql://<dueño>@localhost:5432/logitrace" respaldos\<archivo>.dump`
+  Borre el `.dump` descifrado al terminar. Sin la frase secreta los respaldos no se pueden recuperar.
 - Probar una restauración al menos una vez, en una base aparte, antes de depender de los respaldos.
 
 Los respaldos contienen todos los datos (incluidos los hashes de contraseñas): están excluidos del
@@ -120,15 +149,30 @@ repositorio y deben guardarse con el mismo cuidado que el servidor.
 
 ## 6. Seguridad incluida
 
-- Contraseñas con bcrypt; el rol y el estado de cada cuenta se verifican en la base en cada petición.
-- Tras 5 intentos fallidos de inicio de sesión (por cuenta e IP) o 20 (por IP) se bloquea 15 minutos.
-- Auditoría de accesos y de toda escritura (monitor de auditoría en Administración).
-- Los servicios de los catálogos maestros y de pedidos solo guardan los campos permitidos.
+| Control | Cómo está resuelto |
+| --- | --- |
+| Secretos | `.env` fuera de Git; el frontend no contiene claves; claves iniciales al azar en producción |
+| Base de datos | El navegador nunca accede a ella; la API usa un rol con permisos mínimos y conexión TLS |
+| Acceso a registros | Permisos por perfil en cada ruta del servidor; el repartidor solo ve y actualiza su despacho |
+| Manipulación de campos | Cada servicio guarda solo una lista de campos permitidos; estado, personas y fechas cambian solo por sus acciones |
+| Sesión | Token de acceso de 15 min solo en memoria; renovación en cookie httpOnly + Secure + SameSite=Strict, rotada en cada uso |
+| Contraseñas | bcrypt (coste 12); mismo mensaje y tiempo de respuesta para correo inexistente o clave errada |
+| Abuso y bots | 5 intentos de login por cuenta e IP (20 por IP) cada 15 min; 300 peticiones/min por usuario; campo trampa en el login |
+| Entrada | Validación por ruta; cuerpos de hasta 100 kB; se descartan claves de prototipo y caracteres de control |
+| Consultas | Prisma parametriza todas las consultas; el SQL manual usa parámetros y nombres fijos del código |
+| Salida | Errores sin detalles internos; CSV protegidos contra fórmulas; React muestra todo texto como texto |
+| Archivos | El sistema no acepta subidas de archivos |
+| Transporte | HTTPS obligatorio (redirección, rechazo de escrituras por HTTP, HSTS) y cabeceras de seguridad |
+| Datos en reposo | Disco cifrado de la base gestionada; respaldos cifrados con AES-256-GCM |
+| Auditoría | Accesos, intentos fallidos y toda escritura; tabla inmodificable desde la API |
+| Dependencias | `npm audit` sin vulnerabilidades en backend y frontend; revisar antes de cada despliegue |
 
 ## 7. Lista de verificación
 
 - [ ] `NODE_ENV=production` y `JWT_SECRET` generado con `npm run secreto`
-- [ ] Usuario de PostgreSQL propio con contraseña fuerte
+- [ ] API conectada con el rol `logitrace_app` (scripts/rol-base-datos.sql) y `sslmode=require`
+- [ ] `RESPALDO_CLAVE` definida y guardada fuera del servidor
+- [ ] `npm audit` sin vulnerabilidades en `BackEnd` y `FrontEnd`
 - [ ] Migraciones aplicadas, seed ejecutado, zonas de Valera cargadas, sin datos demo
 - [ ] Contraseñas del seed cambiadas; cuentas sin uso desactivadas
 - [ ] HTTPS funcionando en PC y teléfonos (el GPS de "Mi ruta" responde)
