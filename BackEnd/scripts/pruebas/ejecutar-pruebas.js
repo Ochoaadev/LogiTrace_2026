@@ -71,7 +71,10 @@ async function asegurarParticipantes() {
 function iniciarBackend() {
   const proceso = spawn(process.execPath, ['src/server.js'], {
     cwd: RAIZ,
-    env: { ...process.env, PORT: String(PUERTO), DATABASE_URL: DB_URL, NODE_ENV: 'development' },
+    // Los 12 participantes simulados salen de la misma IP a velocidad de máquina: el límite general de
+    // peticiones (pensado contra abusos) los frenaría. La batería mide funcionalidad y tiempos, así que su
+    // instancia propia lo eleva; el servidor real conserva sus límites.
+    env: { ...process.env, PORT: String(PUERTO), DATABASE_URL: DB_URL, NODE_ENV: 'development', LIMITE_POR_IP: '1000000', LIMITE_POR_USUARIO: '1000000' },
     stdio: 'ignore',
   })
   return proceso
@@ -127,6 +130,28 @@ async function stockCava(productoId) {
 // las ejecuciones sucesivas lo agotaban y el sistema rechazaba (correctamente) las salidas. Antes de
 // empezar se repone hasta STOCK_MINIMO con una ENTRADA registrada, solo en la base de pruebas.
 const STOCK_MINIMO = 500
+// Una ejecución interrumpida deja despachos abiertos con los repartidores ocupados y la siguiente no
+// puede asignar ninguno (lo detectó ejecucion-8). Antes de empezar se cancelan los despachos aún
+// abiertos cuyos pedidos registraron los participantes, y sus repartidores vuelven a quedar libres.
+async function liberarRepartidores() {
+  if (!/\/logitrace_pruebas\?/.test(DB_URL)) throw new Error('Solo en la base logitrace_pruebas')
+  const abiertos = await prisma.despacho.findMany({
+    where: {
+      estado: { in: ['PROGRAMADO', 'PREPARANDO', 'EN_RUTA', 'CON_INCIDENCIA'] },
+      pedidos: { some: { pedido: { creadoPor: { codigo: { startsWith: 'PRB-' } } } } },
+    },
+    select: { id: true, repartidorId: true },
+  })
+  for (const d of abiertos) {
+    await prisma.despacho.update({ where: { id: d.id }, data: { estado: 'CANCELADO', fechaHoraCierre: new Date(), observaciones: 'Cancelado al iniciar la batería de pruebas (ejecución anterior interrumpida)' } })
+  }
+  const libres = await prisma.repartidor.updateMany({
+    where: { estado: { not: 'DISPONIBLE' }, despachos: { none: { estado: { in: ['PROGRAMADO', 'PREPARANDO', 'EN_RUTA', 'CON_INCIDENCIA'] } } } },
+    data: { estado: 'DISPONIBLE' },
+  })
+  return { cancelados: abiertos.length, liberados: libres.count }
+}
+
 async function asegurarStock(cat, usuarioId) {
   if (!/\/logitrace_pruebas\?/.test(DB_URL)) throw new Error('La reposición de stock solo se hace en logitrace_pruebas')
   const actual = await stockCava(cat.producto.id)
@@ -648,6 +673,8 @@ function informe(datos) {
       motivo: await prisma.motivoDevolucion.findFirst({ where: { codigo: 'DEV-003' } }),
     }
     for (const [k, v] of Object.entries(cat)) if (!v || (Array.isArray(v) && !v.length)) throw new Error(`Falta el dato base "${k}". Ejecute primero --preparar`)
+    const limpieza = await liberarRepartidores()
+    if (limpieza.cancelados || limpieza.liberados) console.log(`Entorno de prueba: ${limpieza.cancelados} despacho(s) abierto(s) cancelado(s), ${limpieza.liberados} repartidor(es) liberado(s)`)
     const repuesto = await asegurarStock(cat, participantes[0].id)
     if (repuesto) console.log(`Stock de prueba repuesto: +${repuesto} ${cat.producto.unidadBase} de ${cat.producto.codigo} en cava`)
 
