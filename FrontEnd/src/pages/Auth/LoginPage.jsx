@@ -16,6 +16,7 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [verClave, setVerClave] = useState(false)
   const [recordar, setRecordar] = useState(true)
+  const [trampa, setTrampa] = useState('') // campo invisible: solo un bot lo rellena
   const [ayuda, setAyuda] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,7 +26,7 @@ function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await login(email.trim(), password, recordar)
+      await login(email.trim(), password, recordar, trampa)
       // Vuelve a la pantalla que se intentaba abrir antes de iniciar sesión
       navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
     } catch (err) {
@@ -54,6 +55,11 @@ function LoginPage() {
           <p className="text-xs text-gray-600 mt-1">Ingrese con sus credenciales institucionales</p>
 
           <form onSubmit={handleSubmit} className="mt-6 grid gap-5">
+            {/* Protección contra bots: invisible para las personas y fuera del orden de tabulación */}
+            <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+              <label htmlFor="sitio_web">Sitio web</label>
+              <input id="sitio_web" name="sitio_web" type="text" tabIndex={-1} autoComplete="off" value={trampa} onChange={(e) => setTrampa(e.target.value)} />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="email" className="text-xs font-semibold text-gray-900">Usuario / Correo Institucional</Label>
               <div className="relative">

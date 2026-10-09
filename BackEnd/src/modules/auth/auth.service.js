@@ -1,3 +1,4 @@
+const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const prisma = require('../../config/database')
@@ -7,21 +8,27 @@ const { AppError } = require('../../utils/AppError')
 const BCRYPT_ROUNDS = 12
 const REFRESH_EXPIRES_DAYS = 7
 
-const tokenBlacklist = new Set()
+// Hash de una contraseña que nadie tiene: cuando el correo no existe se compara igual contra él, para
+// que la respuesta tarde lo mismo y no delate qué correos están registrados
+const HASH_FICTICIO = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), BCRYPT_ROUNDS)
+
+// Tokens de renovación ya usados o cerrados (rotación): id del token → vencimiento. Se purgan al vencer.
+const revocados = new Map()
+setInterval(() => {
+  const ahora = Date.now() / 1000
+  for (const [jti, exp] of revocados) if (exp < ahora) revocados.delete(jti)
+}, 60 * 60 * 1000).unref()
 
 function generateAccessToken(user) {
-  return jwt.sign(
-    { sub: user.id, email: user.email, rol: user.rol },
-    jwtSecret,
-    { expiresIn: jwtExpiresIn }
-  )
+  return jwt.sign({ sub: user.id, email: user.email, rol: user.rol }, jwtSecret, { expiresIn: jwtExpiresIn })
 }
 
-function generateRefreshToken(user) {
+// `recordar` viaja en el token para que la rotación conserve el tipo de cookie elegido al entrar
+function generateRefreshToken(user, recordar) {
   return jwt.sign(
-    { sub: user.id, type: 'refresh' },
+    { sub: user.id, type: 'refresh', recordar: !!recordar },
     jwtSecret,
-    { expiresIn: `${REFRESH_EXPIRES_DAYS}d` }
+    { expiresIn: `${REFRESH_EXPIRES_DAYS}d`, jwtid: crypto.randomUUID() },
   )
 }
 
@@ -33,14 +40,6 @@ function verifyRefreshToken(token) {
   }
 }
 
-function isTokenBlacklisted(token) {
-  return tokenBlacklist.has(token)
-}
-
-function blacklistToken(token) {
-  tokenBlacklist.add(token)
-}
-
 async function hashPassword(password) {
   return bcrypt.hash(password, BCRYPT_ROUNDS)
 }
@@ -49,167 +48,70 @@ async function comparePassword(password, hash) {
   return bcrypt.compare(password, hash)
 }
 
-async function login(email, password) {
+const sinClave = ({ passwordHash, ...resto }) => resto
+
+/**
+ * Mismo mensaje para correo inexistente, contraseña errada o cuenta desactivada: antes «Usuario
+ * desactivado» confirmaba que el correo existía. El motivo real queda en `detalle` para la auditoría.
+ */
+async function login(email, password, recordar = false) {
   const user = await prisma.usuario.findUnique({
     where: { email: email.toLowerCase() },
-    include: {
-      repartidor: true,
-    },
-  })
-
-  if (!user) {
-    throw new AppError('Credenciales inválidas', 401)
-  }
-
-  if (!user.activo) {
-    throw new AppError('Usuario desactivado', 401)
-  }
-
-  const valid = await comparePassword(password, user.passwordHash)
-  if (!valid) {
-    throw new AppError('Credenciales inválidas', 401)
-  }
-
-  await prisma.usuario.update({
-    where: { id: user.id },
-    data: { ultimoAcceso: new Date() },
-  })
-
-  const accessToken = generateAccessToken(user)
-  const refreshToken = generateRefreshToken(user)
-
-  const { passwordHash, ...userWithoutPassword } = user
-
-  return {
-    user: userWithoutPassword,
-    accessToken,
-    refreshToken,
-  }
-}
-
-async function register(data) {
-  const { nombre, email, password, rol, documento, telefono } = data
-
-  const existing = await prisma.usuario.findUnique({
-    where: { email: email.toLowerCase() },
-  })
-
-  if (existing) {
-    throw new AppError('El email ya está registrado', 409)
-  }
-
-  if (documento) {
-    const existingDoc = await prisma.usuario.findUnique({
-      where: { documento },
-    })
-    if (existingDoc) {
-      throw new AppError('El documento ya está registrado', 409)
-    }
-  }
-
-  const passwordHash = await hashPassword(password)
-
-  const codigo = `USR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-
-  const user = await prisma.usuario.create({
-    data: {
-      codigo,
-      nombre,
-      email: email.toLowerCase(),
-      passwordHash,
-      rol,
-      documento,
-      telefono,
-    },
     include: { repartidor: true },
   })
-
-  if (rol === 'REPARTIDOR') {
-    await prisma.repartidor.create({
-      data: {
-        usuarioId: user.id,
-        estado: 'DISPONIBLE',
-      },
-    })
+  const valid = await comparePassword(password, user?.passwordHash || HASH_FICTICIO)
+  if (!user || !valid || !user.activo) {
+    const err = new AppError('Credenciales inválidas', 401)
+    err.detalle = !user ? 'Correo no registrado' : !valid ? 'Contraseña incorrecta' : 'Cuenta desactivada'
+    throw err
   }
 
-  const accessToken = generateAccessToken(user)
-  const refreshToken = generateRefreshToken(user)
-
-  const { passwordHash: _, ...userWithoutPassword } = user
+  await prisma.usuario.update({ where: { id: user.id }, data: { ultimoAcceso: new Date() } })
 
   return {
-    user: userWithoutPassword,
-    accessToken,
-    refreshToken,
+    user: sinClave(user),
+    accessToken: generateAccessToken(user),
+    refreshToken: generateRefreshToken(user, recordar),
   }
 }
 
 async function refresh(refreshToken) {
-  if (!refreshToken || isTokenBlacklisted(refreshToken)) {
-    throw new AppError('Refresh token inválido o revocado', 401)
+  const decoded = refreshToken ? verifyRefreshToken(refreshToken) : null
+  if (!decoded || decoded.type !== 'refresh' || !decoded.jti || revocados.has(decoded.jti)) {
+    throw new AppError('Sesión vencida o cerrada', 401)
   }
 
-  const decoded = verifyRefreshToken(refreshToken)
-  if (!decoded || decoded.type !== 'refresh') {
-    throw new AppError('Refresh token inválido', 401)
-  }
+  const user = await prisma.usuario.findUnique({ where: { id: decoded.sub }, include: { repartidor: true } })
+  if (!user || !user.activo) throw new AppError('Sesión vencida o cerrada', 401)
 
-  const user = await prisma.usuario.findUnique({
-    where: { id: decoded.sub },
-    include: { repartidor: true },
-  })
-
-  if (!user || !user.activo) {
-    throw new AppError('Usuario no encontrado o desactivado', 401)
-  }
-
-  blacklistToken(refreshToken)
-
-  const newAccessToken = generateAccessToken(user)
-  const newRefreshToken = generateRefreshToken(user)
-
-  const { passwordHash, ...userWithoutPassword } = user
+  revocados.set(decoded.jti, decoded.exp)
 
   return {
-    user: userWithoutPassword,
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
+    user: sinClave(user),
+    accessToken: generateAccessToken(user),
+    refreshToken: generateRefreshToken(user, decoded.recordar),
+    recordar: !!decoded.recordar,
   }
 }
 
 async function logout(refreshToken) {
-  if (refreshToken) {
-    blacklistToken(refreshToken)
-  }
+  const decoded = refreshToken ? verifyRefreshToken(refreshToken) : null
+  if (decoded?.jti) revocados.set(decoded.jti, decoded.exp)
   return true
 }
 
 async function getMe(userId) {
-  const user = await prisma.usuario.findUnique({
-    where: { id: userId },
-    include: { repartidor: true },
-  })
-
-  if (!user) {
-    throw new AppError('Usuario no encontrado', 404)
-  }
-
-  const { passwordHash, ...userWithoutPassword } = user
-  return userWithoutPassword
+  const user = await prisma.usuario.findUnique({ where: { id: userId }, include: { repartidor: true } })
+  if (!user) throw new AppError('Usuario no encontrado', 404)
+  return sinClave(user)
 }
 
 module.exports = {
+  REFRESH_EXPIRES_DAYS,
   login,
-  register,
   refresh,
   logout,
   getMe,
   hashPassword,
   comparePassword,
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-  isTokenBlacklisted,
-  blacklistToken,
 }

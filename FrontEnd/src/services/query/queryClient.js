@@ -18,7 +18,8 @@ export const queryClient = new QueryClient({
 })
 
 export async function queryErrorHandler(error) {
-  if (error?.response?.status === 401) {
+  // El interceptor de la API ya intentó renovar la sesión; si aún es 401, la sesión terminó
+  if (error?.status === 401 || error?.response?.status === 401) {
     sesion.limpiar()
     window.location.href = '/login'
     return
