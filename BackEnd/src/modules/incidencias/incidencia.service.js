@@ -1,6 +1,8 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { celdaCsv } = require('../../utils/csv')
+const { permitir } = require('../../utils/campos')
 const { codigoUnico } = require('../../utils/codigos')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 
@@ -198,11 +200,7 @@ async function getResumenIncidencias() {
 async function exportIncidenciasCsv(query) {
   const { data } = await listIncidencias({ ...query, page: 1, limit: 100 })
   const fecha = (d) => (d ? new Date(d).toLocaleString('es-VE', { timeZone: 'America/Caracas' }) : '')
-  const celda = (v) => {
-    if (v === null || v === undefined) return ''
-    const s = String(v)
-    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
+    const celda = celdaCsv
   const filas = data.map((i) => [
     i.codigo, fecha(i.fechaHora), i.estado, i.tipo?.nombre, i.despachoPedido?.pedido?.codigo,
     i.despachoPedido?.pedido?.cliente?.razonSocial, i.despachoPedido?.pedido?.zona?.nombre,
@@ -328,9 +326,10 @@ async function updateIncidencia(id, data) {
     throw new AppError('No se puede modificar una incidencia cerrada', 400)
   }
 
+  // El estado y la resolución cambian solo por su acción (PATCH /:id/estado)
   return prisma.incidencia.update({
     where: { id },
-    data,
+    data: permitir(data, ['tipoIncidenciaId', 'descripcion', 'decisionOperativa']),
     include: { tipo: true, despachoPedido: { include: { pedido: true } } },
   })
 }

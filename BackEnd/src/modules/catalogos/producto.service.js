@@ -1,7 +1,12 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { permitir } = require('../../utils/campos')
 const { idsSinTildes } = require('../../utils/busqueda')
+
+// Campos que se guardan (el código solo al crear); el resto del cuerpo se descarta
+const CAMPOS = ['codigo', 'nombre', 'descripcion', 'unidadBase', 'esPerecedero', 'activo']
+const EDITABLES = CAMPOS.filter((c) => c !== 'codigo')
 
 async function listProductos(query) {
   const { page, limit, skip } = getPagination(query)
@@ -49,14 +54,14 @@ async function createProducto(data) {
   const existing = await prisma.producto.findUnique({ where: { codigo: data.codigo } })
   if (existing) throw new AppError('El código ya existe', 409)
 
-  return prisma.producto.create({ data })
+  return prisma.producto.create({ data: permitir(data, CAMPOS) })
 }
 
 async function updateProducto(id, data) {
   const producto = await prisma.producto.findUnique({ where: { id } })
   if (!producto) throw new AppError('Producto no encontrado', 404)
 
-  return prisma.producto.update({ where: { id }, data })
+  return prisma.producto.update({ where: { id }, data: permitir(data, EDITABLES) })
 }
 
 async function deleteProducto(id) {

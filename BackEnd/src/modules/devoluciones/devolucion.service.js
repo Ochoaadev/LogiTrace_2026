@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { permitir } = require('../../utils/campos')
 const { codigoUnico } = require('../../utils/codigos')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 const { PARAMETROS } = require('../../config/parametros')
@@ -370,9 +371,10 @@ async function updateDevolucion(id, data) {
     throw new AppError('No se puede modificar una devolución en estado final', 400)
   }
 
+  // Recepción, evaluación y estado tienen sus propias acciones
   return prisma.devolucion.update({
     where: { id },
-    data,
+    data: permitir(data, ['motivoId', 'observaciones']),
     include: { motivo: true },
   })
 }

@@ -1,6 +1,11 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { permitir } = require('../../utils/campos')
+
+// Campos que se guardan (el código solo al crear); el resto del cuerpo se descarta
+const CAMPOS = ['codigo', 'nombre', 'descripcion', 'activo']
+const EDITABLES = CAMPOS.filter((c) => c !== 'codigo')
 
 async function listMotivosDevolucion(query) {
   const { page, limit, skip } = getPagination(query)
@@ -39,14 +44,14 @@ async function createMotivoDevolucion(data) {
   const existing = await prisma.motivoDevolucion.findUnique({ where: { codigo: data.codigo } })
   if (existing) throw new AppError('El código ya existe', 409)
 
-  return prisma.motivoDevolucion.create({ data })
+  return prisma.motivoDevolucion.create({ data: permitir(data, CAMPOS) })
 }
 
 async function updateMotivoDevolucion(id, data) {
   const motivo = await prisma.motivoDevolucion.findUnique({ where: { id } })
   if (!motivo) throw new AppError('Motivo de devolución no encontrado', 404)
 
-  return prisma.motivoDevolucion.update({ where: { id }, data })
+  return prisma.motivoDevolucion.update({ where: { id }, data: permitir(data, EDITABLES) })
 }
 
 async function deleteMotivoDevolucion(id) {

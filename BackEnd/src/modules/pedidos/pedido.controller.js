@@ -72,8 +72,9 @@ async function previsualizarSalida(req, res, next) {
 
 async function listoParaDespacho(req, res, next) {
   try {
-    const { itemsPreparados } = req.body
-    const pedido = await pedidoService.listoParaDespacho(req.params.id, req.user.sub, itemsPreparados)
+    // Los lotes los asigna siempre el servidor por FEFO: antes se aceptaba una lista del cliente sin
+    // validar, con la que se podía descontar otro producto o, con cantidades negativas, sumar stock
+    const pedido = await pedidoService.listoParaDespacho(req.params.id, req.user.sub)
     return success(res, pedido, 'Pedido listo para despacho')
   } catch (err) {
     next(err)

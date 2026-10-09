@@ -1,6 +1,11 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { permitir } = require('../../utils/campos')
+
+// Campos que se guardan (el código solo al crear); el resto del cuerpo se descarta
+const CAMPOS = ['codigo', 'nombre', 'tipo', 'contacto', 'ubicacion', 'activo']
+const EDITABLES = CAMPOS.filter((c) => c !== 'codigo')
 
 async function listGestoresResiduo(query) {
   const { page, limit, skip } = getPagination(query)
@@ -43,14 +48,14 @@ async function createGestorResiduo(data) {
   const existing = await prisma.gestorResiduo.findUnique({ where: { codigo: data.codigo } })
   if (existing) throw new AppError('El código ya existe', 409)
 
-  return prisma.gestorResiduo.create({ data })
+  return prisma.gestorResiduo.create({ data: permitir(data, CAMPOS) })
 }
 
 async function updateGestorResiduo(id, data) {
   const gestor = await prisma.gestorResiduo.findUnique({ where: { id } })
   if (!gestor) throw new AppError('Gestor de residuo no encontrado', 404)
 
-  return prisma.gestorResiduo.update({ where: { id }, data })
+  return prisma.gestorResiduo.update({ where: { id }, data: permitir(data, EDITABLES) })
 }
 
 async function deleteGestorResiduo(id) {

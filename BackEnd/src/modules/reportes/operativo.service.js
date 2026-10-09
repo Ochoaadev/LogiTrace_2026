@@ -3,6 +3,7 @@
 const PDFDocument = require('pdfkit')
 const prisma = require('../../config/database')
 const { AppError } = require('../../utils/AppError')
+const { celdaCsv } = require('../../utils/csv')
 const { PARAMETROS } = require('../../config/parametros')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 const { getResumenResiduos } = require('../residuos/residuo.service')
@@ -313,10 +314,7 @@ function filasReporte(r, secciones) {
 
 async function exportReporteCsv(query) {
   const r = await getReporteOperativo(query)
-  const celda = (v) => {
-    const s = v === null || v === undefined ? '' : String(v)
-    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
+    const celda = celdaCsv
   const lineas = [['Sección', 'Indicador', 'Valor', 'Detalle'], ...filasReporte(r, seccionesPedidas(query))]
   return '﻿' + lineas.map((f) => f.map(celda).join(';')).join('\r\n')
 }

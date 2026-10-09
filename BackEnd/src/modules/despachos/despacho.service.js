@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { permitir } = require('../../utils/campos')
 const { codigoUnico } = require('../../utils/codigos')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 const { vincularLotesParada } = require('../inventario/asignacionLotes')
@@ -324,7 +325,8 @@ async function updateDespacho(id, data) {
     throw new AppError('No se puede modificar un despacho finalizado', 400)
   }
 
-  return prisma.despacho.update({ where: { id }, data })
+  // Solo datos de planificación; estado, repartidor y fechas cambian por sus acciones (con validación y auditoría)
+  return prisma.despacho.update({ where: { id }, data: permitir(data, ['rutaId', 'vehiculoId', 'medioConservacion', 'precintoSeguridad', 'observaciones']) })
 }
 
 async function changeEstado(id, nuevoEstado, usuarioId, observaciones) {

@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit')
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { celdaCsv } = require('../../utils/csv')
 const { codigoUnico } = require('../../utils/codigos')
 
 const TZ = 'America/Caracas'
@@ -370,11 +371,6 @@ async function getResumenResiduos(query) {
 const fechaHora = (d) =>
   d ? new Date(d).toLocaleString('es-VE', { timeZone: TZ, dateStyle: 'short', timeStyle: 'short' }) : ''
 
-function celdaCsv(valor) {
-  if (valor === null || valor === undefined) return ''
-  const s = String(valor)
-  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
 
 // CSV de la bitácora (mismos filtros que la lista). Separador ";" para Excel es-VE.
 async function exportResiduosCsv(query) {

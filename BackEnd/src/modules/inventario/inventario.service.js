@@ -1,6 +1,7 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { celdaCsv } = require('../../utils/csv')
 const { LIMITE_CRITICO_C } = require('../trazabilidad/expediente.service')
 
 async function listInventario(query) {
@@ -419,11 +420,7 @@ async function getResumenInventario() {
 async function exportKardexCsv(query) {
   const { data } = await listMovimientos({ ...query, page: 1, limit: 100 })
   const fecha = (d) => new Date(d).toLocaleString('es-VE', { timeZone: 'America/Caracas' })
-  const celda = (v) => {
-    if (v === null || v === undefined) return ''
-    const s = String(v)
-    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
+    const celda = celdaCsv
   const filas = data.map((m) => [
     fecha(m.fechaHora), m.tipo, m.lote?.codigo, m.lote?.producto?.nombre, Number(m.cantidad), m.unidad,
     m.ubicacionOrigen?.nombre, m.ubicacionDestino?.nombre, m.usuario?.nombre, m.referenciaTipo, m.observaciones,

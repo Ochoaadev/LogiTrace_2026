@@ -1,6 +1,11 @@
 const prisma = require('../../config/database')
 const { getPagination } = require('../../utils/pagination')
 const { AppError } = require('../../utils/AppError')
+const { permitir } = require('../../utils/campos')
+
+// Campos que se guardan (el código solo al crear); el resto del cuerpo se descarta
+const CAMPOS = ['codigo', 'tipo', 'placa', 'descripcion', 'capacidadCarga', 'unidadCapacidad', 'esTermico', 'activo']
+const EDITABLES = CAMPOS.filter((c) => c !== 'codigo')
 
 async function listVehiculos(query) {
   const { page, limit, skip } = getPagination(query)
@@ -48,7 +53,7 @@ async function createVehiculo(data) {
     if (existingPlaca) throw new AppError('La placa ya existe', 409)
   }
 
-  return prisma.vehiculo.create({ data })
+  return prisma.vehiculo.create({ data: permitir(data, CAMPOS) })
 }
 
 async function updateVehiculo(id, data) {
@@ -60,7 +65,7 @@ async function updateVehiculo(id, data) {
     if (existing) throw new AppError('La placa ya existe', 409)
   }
 
-  return prisma.vehiculo.update({ where: { id }, data })
+  return prisma.vehiculo.update({ where: { id }, data: permitir(data, EDITABLES) })
 }
 
 async function deleteVehiculo(id) {

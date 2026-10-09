@@ -1,4 +1,5 @@
 // Exportación de trazabilidad: CSV de eventos (para análisis en hoja de cálculo) y PDF del
+const { celdaCsv } = require('../../utils/csv')
 // expediente de un pedido ("Imprimir expediente de trazabilidad" del Figma).
 const PDFDocument = require('pdfkit')
 const prisma = require('../../config/database')
@@ -10,12 +11,6 @@ const TZ = 'America/Caracas'
 const fechaHora = (d) =>
   d ? new Date(d).toLocaleString('es-VE', { timeZone: TZ, dateStyle: 'short', timeStyle: 'short' }) : '—'
 
-// RFC 4180: comillas si hay separador, comillas o salto de línea
-function celdaCsv(valor) {
-  if (valor === null || valor === undefined) return ''
-  const s = String(valor)
-  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
 
 /**
  * CSV de eventos. Con pedidoId exporta la línea temporal completa del expediente; sin él,

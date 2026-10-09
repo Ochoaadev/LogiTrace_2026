@@ -456,14 +456,14 @@ async function previsualizarSalida(id) {
   }
 }
 
-async function listoParaDespacho(id, usuarioId, itemsPreparados) {
+async function listoParaDespacho(id, usuarioId) {
   const pedido = await prisma.pedido.findUnique({ where: { id }, include: { detalles: { include: { producto: true } } } })
   if (!pedido) throw new AppError('Pedido no encontrado', 404)
   if (pedido.estado !== 'EN_PREPARACION') throw new AppError('Solo desde EN_PREPARACION', 400)
 
   await prisma.$transaction(async (tx) => {
     // Sin lotes indicados (flujo de la interfaz) se asignan por FEFO desde la cava
-    const items = itemsPreparados?.length ? itemsPreparados : await asignarLotesFefo(tx, pedido)
+    const items = await asignarLotesFefo(tx, pedido)
     for (const item of items) {
       const lote = await tx.lote.findUnique({ where: { id: item.loteId } })
       if (!lote) throw new AppError(`Lote ${item.loteId} no encontrado`, 404)
