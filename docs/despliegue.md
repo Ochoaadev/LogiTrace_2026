@@ -1,7 +1,54 @@
 # Despliegue de LogiTrace en producción
 
-Guía para instalar LogiTrace en un equipo servidor de la planta (Windows) y usarlo desde los PC de la
-oficina y los teléfonos de los repartidores. El GPS del navegador **exige HTTPS**, por eso todo se sirve
+LogiTrace se puede desplegar de dos formas:
+
+- **En la nube (Vercel + Neon)**: la opción en uso, ver la sección 0.
+- **En un servidor propio de la planta (Windows)**: secciones 1 a 7.
+
+## 0. Nube: Vercel + Neon (despliegue actual)
+
+```
+Teléfonos / PC ──HTTPS──► Vercel (cle1) ──┬── /api/*  → función api/index.js (Express) ──► Neon PostgreSQL 18 (us-east-2)
+                                          └── resto   → FrontEnd/dist (archivos estáticos)
+```
+
+- **URL**: https://logitrace2026-6jc6.vercel.app (Vercel da HTTPS y certificado; el GPS funciona sin configurar nada).
+- **Un solo proyecto y un solo dominio**: la página y la API comparten origen, así que la cookie de sesión
+  (SameSite=Strict) funciona sin abrir CORS. Toda la configuración está en `vercel.json` (compilación,
+  región, reenvío de `/api/*` a la función, cabeceras de seguridad y CSP de la página).
+- **Despliegue automático**: cada `git push` a `main` publica una versión nueva.
+- **`.vercelignore`** impide subir `.env`, respaldos y material local cuando se despliega con la CLI.
+
+**Variables de entorno en Vercel** (Settings → Environment Variables):
+
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | `postgresql://logitrace_app:<clave>@<endpoint>-pooler.<región>.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connection_limit=5&connect_timeout=15` (pooler y rol restringido) |
+| `JWT_SECRET` | resultado de `npm run secreto` |
+| `JWT_EXPIRES_IN` | `15m` |
+| `NODE_ENV` | `production` |
+| `TRUST_PROXY` | `1` |
+
+**Adaptaciones para funciones sin servidor** (cada petición puede ir a una instancia distinta):
+
+- Las sesiones revocadas (`SesionRevocada`) y los intentos de login (`IntentoLogin`) se guardan en la base.
+- La auditoría y los contadores que se escriben tras responder usan `waitUntil` (`src/utils/segundoPlano.js`).
+- El límite general de peticiones por minuto es por instancia; Vercel añade su propia protección.
+
+**Base de datos (Neon)**:
+
+- Migraciones y seed se ejecutan con el usuario dueño (`neondb_owner`), nunca desde Vercel. Si la red
+  local bloquea el puerto 5432, se pueden aplicar por WebSocket (puerto 443) con `@neondatabase/serverless`.
+- Tras cada migración que cree tablas, volver a ejecutar `scripts/rol-base-datos.sql` para dar permisos al rol `logitrace_app`.
+- Respaldos: Neon guarda historial para restaurar a un punto en el tiempo (6 h en el plan gratuito). Para
+  respaldos propios cifrados, `npm run respaldo` desde un PC con `DATABASE_URL` apuntando a Neon.
+- El plan gratuito suspende la base sin uso: el primer acceso tras un rato tarda 1–2 s más.
+- El plan Hobby de Vercel es para uso no comercial; para la operación diaria de la empresa corresponde el plan Pro.
+
+---
+
+Las secciones siguientes describen la instalación en un equipo servidor de la planta (Windows), para usarlo
+desde los PC de la oficina y los teléfonos de los repartidores. El GPS del navegador **exige HTTPS**, por eso todo se sirve
 detrás de un proxy inverso con certificado.
 
 ```
