@@ -4,7 +4,7 @@
   "installCommand": "npm ci --prefix BackEnd && npm ci --prefix FrontEnd",
   "buildCommand": "npm run build --prefix FrontEnd",
   "outputDirectory": "FrontEnd/dist",
-  "regions": ["iad1"],
+  "regions": ["cle1"],
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
