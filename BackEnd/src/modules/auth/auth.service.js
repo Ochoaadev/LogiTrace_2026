@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken')
 const prisma = require('../../config/database')
 const { jwtSecret, jwtExpiresIn } = require('../../config/env')
 const { AppError } = require('../../utils/AppError')
+const { segundoPlano } = require('../../utils/segundoPlano')
 
 const BCRYPT_ROUNDS = 12
 const REFRESH_EXPIRES_DAYS = 7
@@ -12,12 +13,24 @@ const REFRESH_EXPIRES_DAYS = 7
 // que la respuesta tarde lo mismo y no delate qué correos están registrados
 const HASH_FICTICIO = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), BCRYPT_ROUNDS)
 
-// Tokens de renovación ya usados o cerrados (rotación): id del token → vencimiento. Se purgan al vencer.
-const revocados = new Map()
-setInterval(() => {
-  const ahora = Date.now() / 1000
-  for (const [jti, exp] of revocados) if (exp < ahora) revocados.delete(jti)
-}, 60 * 60 * 1000).unref()
+/**
+ * Revoca un token de renovación (tabla SesionRevocada). Devuelve false si ya estaba revocado: la clave
+ * primaria hace que, si dos peticiones usan el mismo token a la vez, solo una gane la rotación.
+ * Se guarda en la base y no en memoria porque en la nube cada petición puede ir a otra instancia.
+ */
+async function revocar(jti, exp) {
+  try {
+    await prisma.sesionRevocada.create({ data: { jti, expira: new Date(exp * 1000) } })
+  } catch (err) {
+    if (err.code === 'P2002') return false
+    throw err
+  }
+  // Limpieza ocasional de los ya vencidos (un token vencido se rechaza igual por su firma)
+  if (Math.random() < 0.05) {
+    segundoPlano(prisma.sesionRevocada.deleteMany({ where: { expira: { lt: new Date() } } }))
+  }
+  return true
+}
 
 function generateAccessToken(user) {
   return jwt.sign({ sub: user.id, email: user.email, rol: user.rol }, jwtSecret, { expiresIn: jwtExpiresIn })
@@ -77,14 +90,15 @@ async function login(email, password, recordar = false) {
 
 async function refresh(refreshToken) {
   const decoded = refreshToken ? verifyRefreshToken(refreshToken) : null
-  if (!decoded || decoded.type !== 'refresh' || !decoded.jti || revocados.has(decoded.jti)) {
+  if (!decoded || decoded.type !== 'refresh' || !decoded.jti) {
     throw new AppError('Sesión vencida o cerrada', 401)
   }
 
   const user = await prisma.usuario.findUnique({ where: { id: decoded.sub }, include: { repartidor: true } })
   if (!user || !user.activo) throw new AppError('Sesión vencida o cerrada', 401)
 
-  revocados.set(decoded.jti, decoded.exp)
+  // Revocar y comprobar en un solo paso: un token ya usado no vuelve a servir
+  if (!(await revocar(decoded.jti, decoded.exp))) throw new AppError('Sesión vencida o cerrada', 401)
 
   return {
     user: sinClave(user),
@@ -96,7 +110,7 @@ async function refresh(refreshToken) {
 
 async function logout(refreshToken) {
   const decoded = refreshToken ? verifyRefreshToken(refreshToken) : null
-  if (decoded?.jti) revocados.set(decoded.jti, decoded.exp)
+  if (decoded?.jti) await revocar(decoded.jti, decoded.exp)
   return true
 }
 

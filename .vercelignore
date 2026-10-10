@@ -1,0 +1,22 @@
+# Solo se sube a Vercel lo necesario para construir; nunca secretos, respaldos ni material local
+/*
+!api
+!BackEnd
+!FrontEnd
+!vercel.json
+BackEnd/.env
+BackEnd/.env.*
+!BackEnd/.env.example
+BackEnd/respaldos
+BackEnd/node_modules
+BackEnd/server.log
+BackEnd/tests
+FrontEnd/.env
+FrontEnd/.env.*
+!FrontEnd/.env.example
+FrontEnd/node_modules
+FrontEnd/dist
+FrontEnd/certs
+**/*.log
+**/*.pem
+**/*.key

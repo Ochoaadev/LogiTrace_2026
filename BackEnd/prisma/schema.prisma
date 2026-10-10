@@ -844,3 +844,21 @@ model Auditoria {
   @@index([modulo, fechaHora])
   @@index([entidad, entidadId])
 }
+
+// Tokens de renovación ya usados o cerrados (rotación de sesión). En la base y no en memoria: en la
+// nube (Vercel) cada petición puede atenderla una instancia distinta del backend.
+model SesionRevocada {
+  jti    String   @id @db.VarChar(64)
+  expira DateTime @db.Timestamptz(3)
+
+  @@index([expira])
+}
+
+// Intentos fallidos de inicio de sesión por IP + correo y por IP (límite contra prueba masiva de claves)
+model IntentoLogin {
+  clave String   @id @db.VarChar(320)
+  n     Int
+  desde DateTime @db.Timestamptz(3)
+
+  @@index([desde])
+}

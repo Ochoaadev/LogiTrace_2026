@@ -57,7 +57,8 @@ function sanearEntrada(req, res, next) {
  * Límite general de peticiones (además del límite de intentos de login). Ventana de 1 minuto:
  * - por usuario autenticado (id del token): 300 peticiones;
  * - por dirección IP: 900 (en la nube, toda la oficina puede salir por la misma IP).
- * En memoria: suficiente para una instancia del backend.
+ * En memoria, por instancia: en un servidor propio es exacto; en Vercel cada instancia cuenta lo suyo y
+ * la plataforma añade su propia protección contra ráfagas. El freno de login sí es global (en la base).
  */
 const VENTANA_MS = 60 * 1000
 const MAX_USUARIO = Number(process.env.LIMITE_POR_USUARIO) || 300

@@ -1,4 +1,5 @@
 const { registrar, describirSolicitud } = require('../modules/auditoria/auditoria.service')
+const { segundoPlano } = require('../utils/segundoPlano')
 
 const ESCRITURA = ['POST', 'PUT', 'PATCH', 'DELETE']
 // El inicio de sesión se audita en el controlador (incluye los intentos fallidos)
@@ -12,7 +13,8 @@ function auditoriaMiddleware(req, res, next) {
   if (!ESCRITURA.includes(req.method) || EXCLUIDAS.some((r) => r.test(req.originalUrl))) return next()
   res.on('finish', () => {
     if (res.statusCode >= 400 || !req.user?.sub) return
-    registrar({ usuarioId: req.user.sub, ip: req.ip, ...describirSolicitud(req) })
+    // En la nube la escritura debe terminar aunque la respuesta ya se haya enviado
+    segundoPlano(registrar({ usuarioId: req.user.sub, ip: req.ip, ...describirSolicitud(req) }))
   })
   next()
 }
