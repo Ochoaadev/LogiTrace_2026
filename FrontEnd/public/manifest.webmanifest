@@ -1,0 +1,13 @@
+{
+  "name": "LogiTrace · SuperTequeños C.A.",
+  "short_name": "LogiTrace",
+  "lang": "es",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f4",
+  "theme_color": "#0f62fe",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
